@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ShoppingCart, Package, DollarSign, BarChart2, Settings, Home, User, LogOut, ShieldCheck, MapPin, ChevronDown, Plus } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useBranding } from '../../context/BrandingContext';
