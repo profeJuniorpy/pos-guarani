@@ -160,12 +160,70 @@ export const Inventory = () => {
     }
   };
 
+  const handleSeedData = async () => {
+    if (!confirm('¿Deseas cargar los datos de ejemplo del mercado paraguayo? Se añadirán nuevos productos, categorías y proveedores.')) return;
+
+    try {
+      // 1. Sembrar Categorías
+      const sampleCategories = [
+        { name: 'Almacén' },
+        { name: 'Frutas y Verduras' },
+        { name: 'Carnicería' },
+        { name: 'Bebidas' },
+        { name: 'Limpieza' }
+      ];
+      
+      const catIds = [];
+      for (const cat of sampleCategories) {
+        const id = await db.categories.add(cat);
+        catIds.push({ id, ...cat });
+        await syncToCloud('categories', { id, ...cat });
+      }
+
+      // 2. Sembrar Proveedores
+      const sampleSuppliers = [
+        { name: 'Abasto Central', phone: '021 500 000' },
+        { name: 'Distribuidora del Este', phone: '0981 123 456' },
+        { name: 'Coca-Cola Paraguay', phone: '021 969 000' },
+        { name: 'Frigorífico Concepción', phone: '021 688 000' }
+      ];
+
+      for (const sup of sampleSuppliers) {
+        const id = await db.suppliers.add(sup);
+        await syncToCloud('suppliers', { id, ...sup });
+      }
+
+      // 3. Sembrar Productos
+      const productsToSeed = [
+        { name: 'Arroz Itapúa (1kg)', price: 6500, cost: 5000, stock: 24, min_stock: 5, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001001' },
+        { name: 'Fideo Federal (500g)', price: 4800, cost: 3500, stock: 30, min_stock: 10, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001002' },
+        { name: 'Tomate Santa Cruz (Kg)', price: 12000, cost: 8000, stock: 15, min_stock: 5, category_id: catIds[1].id, unit: 'Kg', barcode: 'V001' },
+        { name: 'Papa Negra (Kg)', price: 6500, cost: 4000, stock: 20, min_stock: 5, category_id: catIds[1].id, unit: 'Kg', barcode: 'V002' },
+        { name: 'Coca-Cola (2 Litros)', price: 13500, cost: 11000, stock: 12, min_stock: 6, category_id: catIds[3].id, unit: 'Unidad', barcode: '7750106001' },
+        { name: 'Detergente Activo (500ml)', price: 6800, cost: 4500, stock: 10, min_stock: 3, category_id: catIds[4].id, unit: 'Unidad', barcode: '7840001003' },
+        { name: 'Carnaza de Primera (Kg)', price: 48000, cost: 38000, stock: 8, min_stock: 2, category_id: catIds[2].id, unit: 'Kg', barcode: 'C001' }
+      ];
+
+      for (const prod of productsToSeed) {
+        const id = await db.products.add(prod);
+        await syncToCloud('products', { id, ...prod });
+      }
+
+      await loadData();
+      alert('✅ ¡Mercado cargado con éxito! Productos, Categorías y Proveedores listos.');
+    } catch (err) {
+      console.error('Error al sembrar datos:', err);
+      alert('❌ Error al cargar datos. Intenta de nuevo.');
+    }
+  };
+
   return (
     <div className="animate-fade inventory-page">
       <header className="page-header">
         <div className="header-title">
           <h1>Gestión de Inventario</h1>
           <div className="header-actions">
+            <button onClick={handleSeedData} className="seed-data-btn">Cargar Ejemplo</button>
             <button onClick={handleSyncAll} className="sync-cloud-btn">Sincronizar Nube</button>
             <button onClick={handlePrintList} className="secondary-btn">Imprimir Informe</button>
             <button onClick={() => setShowModal(activeTab === 'products' ? 'product' : activeTab === 'categories' ? 'category' : 'supplier')} className="add-btn">
@@ -365,6 +423,8 @@ export const Inventory = () => {
         .inventory-page { max-width: 1200px; margin: 0 auto; }
         .header-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
         .header-actions { display: flex; gap: 12px; }
+        .seed-data-btn { background: linear-gradient(135.22deg, #8E2DE2 0%, #4A00E0 100%); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(142, 45, 226, 0.3); transition: 0.3s; }
+        .seed-data-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(142, 45, 226, 0.4); }
         .sync-cloud-btn { background: #3ecf8e; color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(62, 207, 142, 0.3); transition: 0.3s; }
         .sync-cloud-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
         
