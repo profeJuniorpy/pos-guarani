@@ -1,27 +1,50 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ArrowLeft, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag } from 'lucide-react';
+import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag, Filter } from 'lucide-react';
 import { useBranches } from '../context/BranchContext';
 import { supabase } from '../utils/supabase';
 
 export const POS = () => {
   const { activeBranch } = useBranches();
+  
+  // Data States
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [cart, setCart] = useState([]);
   const [total, setTotal] = useState(0);
+
+  // UI States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
+  const [showCartMobile, setShowCartMobile] = useState(false);
+  const [orderComplete, setOrderComplete] = useState(false);
+  
+  // Transaction States
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [weightInput, setWeightInput] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [products, setProducts] = useState([]);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [showCartMobile, setShowCartMobile] = useState(false);
+  const [receivedAmount, setReceivedAmount] = useState('');
 
-  useEffect(() => { loadProducts(); }, [activeBranch]);
+  useEffect(() => { 
+    if (activeBranch) {
+      loadProducts(); 
+      loadCategories();
+    }
+  }, [activeBranch]);
+
+  const loadCategories = async () => {
+    try {
+      const cats = await db.categories.toArray();
+      setCategories(cats);
+    } catch (err) {
+      console.error("Error cargando categorías:", err);
+    }
+  };
 
   const loadProducts = async () => {
-    if (!activeBranch) return;
     try {
       const p = await db.products.toArray();
       const branchStock = await db.branch_stock.where('branch_id').equals(activeBranch.id).toArray();
@@ -30,7 +53,6 @@ export const POS = () => {
         const stockEntry = branchStock.find(bs => bs.product_id === prod.id);
         return { ...prod, stock: stockEntry ? stockEntry.stock : 0 };
       });
-
       setProducts(productsWithBranchStock);
     } catch (err) {
       console.error("Error cargando productos:", err);
@@ -59,7 +81,6 @@ export const POS = () => {
       return;
     }
 
-    // Si es por kilo, abrir modal de peso
     if (product.unit?.toLowerCase().includes('kg')) {
       setSelectedProduct(product);
       setWeightInput('0');
@@ -67,7 +88,6 @@ export const POS = () => {
       return;
     }
 
-    // Si es unidad, sumar normal
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock) {
@@ -128,6 +148,8 @@ export const POS = () => {
         items: [...cart],
         total,
         paymentMethod,
+        receivedAmount: paymentMethod === 'Efectivo' ? Number(receivedAmount) : total,
+        change: paymentMethod === 'Efectivo' ? Number(receivedAmount) - total : 0,
         branch_id: activeBranch.id
       };
 
@@ -148,6 +170,7 @@ export const POS = () => {
       setCart([]);
       setShowPaymentModal(false);
       setShowCartMobile(false);
+      setReceivedAmount('');
       loadProducts();
     } catch (err) {
       console.error("Error completando la venta:", err);
@@ -160,305 +183,366 @@ export const POS = () => {
     
     printWindow.document.write(`
       <html>
-        <head><title>Ticket - GuaraniPOS</title>
-        <style>body { font-family: 'Courier New', monospace; width: 50mm; padding: 5mm; font-size: 10pt; }
-        .center { text-align: center; } .hr { border-top: 1px dashed black; margin: 10px 0; }
-        .row { display: flex; justify-content: space-between; margin: 5px 0; }</style></head>
+        <head><title>Ticket - San Lucas POS</title>
+        <style>body { font-family: 'Courier New', monospace; width: 50mm; padding: 2mm; margin: 0; font-size: 10px; color: black; }
+        .center { text-align: center; } .hr { border-top: 1px dashed black; margin: 5px 0; }
+        h2 { font-size: 14px; margin: 5px 0; }
+        p { margin: 3px 0; }
+        .row { display: flex; justify-content: space-between; margin: 3px 0; }
+        .item-name { max-width: 30mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }</style></head>
         <body>
-          <h2 class="center">GUARANI POS</h2>
-          <p class="center">${new Date().toLocaleString()}</p>
+          <h2 class="center">SAN LUCAS</h2>
+          <p class="center" style="font-size: 8px;">${new Date().toLocaleString()}</p>
           <div class="hr"></div>
           ${cart.map(item => `
-            <div class="row"><span>${item.name} x${item.quantity}</span> <span>${(item.price * item.quantity).toLocaleString()}</span></div>
+            <div class="row">
+              <span class="item-name">${item.name} (${item.quantity})</span> 
+              <span>${(item.price * item.quantity).toLocaleString()}</span>
+            </div>
           `).join('')}
           <div class="hr"></div>
           <div class="row"><b>Total:</b> <b>Gs. ${total.toLocaleString('es-PY')}</b></div>
-          <p class="center">¡Muchas Gracias!</p>
+          <p class="center" style="margin-top:10px;">¡Muchas Gracias!</p>
           <script>window.onload = () => { window.print(); window.close(); }</script>
         </body></html>
     `);
     printWindow.document.close();
   };
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (p.barcode && p.barcode.includes(searchTerm))
-  );
+  const filteredProducts = products.filter(p => {
+    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.barcode && p.barcode.includes(searchTerm));
+    const matchCategory = selectedCategory ? (p.category_id === selectedCategory.id || p.category === selectedCategory.name) : true;
+    return matchSearch && matchCategory;
+  });
 
   if (orderComplete) {
     return (
-      <div className="order-complete glass animate-fade">
-        <CheckCircle size={100} color="var(--secondary)" />
-        <h2 style={{fontSize: '2.5rem', margin: '1rem 0'}}>Venta Registrada</h2>
-        <p>El stock ha sido actualizado localmente y sincronizado con la nube.</p>
-        <div className="complete-actions">
-          <button onClick={handlePrintTicket} className="print-btn"><Printer size={20} /> Imprimir Comprobante</button>
-          <button onClick={() => setOrderComplete(false)} className="new-order-btn">Siguiente Venta</button>
+      <div className="container-fluid d-flex flex-column align-items-center justify-content-center pt-5 animate-fade">
+        <CheckCircle size={80} className="text-success mb-3" />
+        <h1 className="fw-bold fs-2 text-dark">Venta Registrada</h1>
+        <p className="text-muted text-center max-w-sm">El stock ha sido actualizado localmente y sincronizado con la nube.</p>
+        <div className="d-flex flex-column gap-3 mt-4" style={{width: '100%', maxWidth: '300px'}}>
+          <button onClick={handlePrintTicket} className="btn btn-outline-dark btn-lg d-flex justify-content-center align-items-center fw-bold">
+            <Printer size={20} className="me-2" /> Imprimir Válido
+          </button>
+          <button onClick={() => setOrderComplete(false)} className="btn btn-success btn-lg shadow-sm fw-bold">
+            Siguiente Venta
+          </button>
         </div>
-        <style>{`
-          .order-complete { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 30px; border: 1px solid var(--border); padding: 2rem; text-align: center; }
-          .complete-actions { display: flex; flex-direction: column; gap: 15px; margin-top: 2rem; width: 100%; max-width: 300px; }
-          .print-btn { background: var(--bg-card); border: 1px solid var(--border); padding: 15px; border-radius: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
-          .new-order-btn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 15px rgba(94,92,230,0.3); }
-          @media (min-width: 768px) { .complete-actions { flex-direction: row; max-width: 500px; } .order-complete { padding: 5rem; } }
-        `}</style>
       </div>
     );
   }
 
+  const isEfectivo = paymentMethod === 'Efectivo';
+  const isValidPayment = isEfectivo ? (Number(receivedAmount) >= total) : true;
+
   return (
-    <div className="animate-fade pos-container">
-      <div className="pos-layout">
-        <section className="products-section">
-          <div className="search-bar glass">
-            <Search size={22} color="var(--text-muted)" />
+    <div className="container-fluid pt-3 animate-fade pos-container no-print position-relative h-100">
+      <div className="row h-100 g-3">
+        
+        {/* LEFT COLUMN: PRODUCTS SECTION */}
+        <div className="col-12 col-md-8 col-lg-8 d-flex flex-column" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+          
+          {/* Search Bar */}
+          <div className="input-group mb-3 shadow-sm rounded-pill bg-white overflow-hidden border">
+            <span className="input-group-text bg-white border-0 ps-3">
+              <Search size={20} className="text-muted" />
+            </span>
             <input 
               type="text" 
-              placeholder="Buscar producto..." 
+              className="form-control border-0 bg-white py-2 shadow-none" 
+              placeholder="Buscar producto por nombre o código..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            {searchTerm && <X size={20} className="clear-search" onClick={() => setSearchTerm('')} />}
+            {searchTerm && (
+              <span className="input-group-text bg-white border-0 pe-3 cursor-pointer" onClick={() => setSearchTerm('')}>
+                <X size={18} className="text-secondary" style={{cursor: 'pointer'}} />
+              </span>
+            )}
           </div>
 
-          <div className="products-grid">
-            {filteredProducts.map(product => (
-              <button key={product.id} onClick={() => addToCart(product)} className="product-item glass">
-                <div className="p-badge">{product.unit}</div>
-                <div className="p-info">
-                  <span className="p-name">{product.name}</span>
-                  <span className="p-stock">{product.stock} {product.unit} disp.</span>
-                </div>
-                <span className="p-price">Gs. {product.price.toLocaleString()}</span>
+          {/* Categories Pill Bar */}
+          <div className="d-flex overflow-auto gap-2 pb-2 mb-3 px-1 no-scrollbar styling-pills">
+            <button 
+              className={`btn rounded-pill px-4 fw-bold flex-shrink-0 ${!selectedCategory ? 'btn-success text-white shadow-sm' : 'btn-light border text-muted'}`}
+              onClick={() => setSelectedCategory(null)}
+            >
+              <Filter size={16} className="me-1" /> Todos
+            </button>
+            {categories.map(cat => (
+              <button 
+                key={cat.id || cat.name}
+                className={`btn rounded-pill px-4 fw-bold flex-shrink-0 ${selectedCategory?.name === cat.name ? 'btn-success text-white shadow-sm' : 'btn-light border text-muted'}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat.name}
               </button>
             ))}
           </div>
-        </section>
 
-        <aside className={`checkout-aside glass ${showCartMobile ? 'mobile-visible' : ''}`}>
-          <div className="cart-header">
-            <div className="flex items-center gap-2">
-              <ShoppingCart size={20} /> 
-              <h3>Carrito ({cart.length})</h3>
-            </div>
-            <button onClick={() => setCart([])} className="clear-btn">Limpiar</button>
-            <button className="mobile-only close-cart" onClick={() => setShowCartMobile(false)}><X /></button>
-          </div>
-
-          <div className="cart-items">
-            {cart.length === 0 ? (
-              <div className="empty-cart">
-                <ShoppingBag size={48} opacity={0.1} />
-                <p>Carrito vacío</p>
-              </div>
-            ) : cart.map(item => (
-              <div key={item.id} className="cart-item">
-                <div className="item-details">
-                  <span className="item-name">{item.name}</span>
-                  <span className="item-price">
-                    {item.quantity} {item.unit} x {item.price.toLocaleString()}
-                  </span>
+          {/* Product Grid */}
+          <div className="row g-2 g-md-3 overflow-auto pb-5 pb-md-2 pe-1" style={{ flex: 1, alignContent: 'flex-start' }}>
+            {filteredProducts.map(product => (
+              <div key={product.id} className="col-6 col-sm-4 col-lg-3">
+                <div className="card h-100 border-0 shadow-sm rounded-4 text-center cursor-pointer transition-transform product-card" onClick={() => addToCart(product)}>
+                  <div className="card-body p-3 d-flex flex-column h-100 position-relative">
+                    <span className="badge bg-success bg-opacity-10 text-success position-absolute top-0 end-0 m-2 rounded-pill px-2">
+                      {product.stock} {product.unit}
+                    </span>
+                    <h6 className="card-title fw-bold text-dark mt-3 mb-1 text-truncate-2" style={{fontSize: '0.9rem', minHeight: '40px'}}>
+                      {product.name}
+                    </h6>
+                    <div className="mt-auto">
+                      <p className="card-text text-success fw-bold mb-2 fs-5">
+                        Gs. {product.price.toLocaleString()}
+                      </p>
+                      <button className="btn btn-sm btn-success w-100 fw-bold rounded-pill p-2 add-btn">
+                        <Plus size={16} /> Agregar
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="qty-controls">
-                  <button onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? -0.1 : -1)}><Minus size={14} /></button>
-                  <span className="qty-val">{item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(3)}</span>
-                  <button onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? 0.1 : 1)}><Plus size={14} /></button>
-                </div>
-                <button className="remove-item" onClick={() => updateQuantity(item.id, -item.quantity)}>
-                  <Trash2 size={14} />
-                </button>
               </div>
             ))}
           </div>
-
-          <div className="checkout-footer">
-            <div className="total-row">
-              <span>Total</span>
-              <span className="total-amount">Gs. {total.toLocaleString()}</span>
-            </div>
-            <button 
-              className="pay-button" 
-              disabled={cart.length === 0}
-              onClick={() => setShowPaymentModal(true)}
-            >
-              Cobrar Ahora
-            </button>
-          </div>
-        </aside>
-
-        {/* MOBILE REVEAL BUTTON */}
-        <div className="mobile-cart-bar mobile-only glass" onClick={() => setShowCartMobile(true)}>
-          <div className="flex items-center gap-3">
-            <div className="cart-count-badge">{cart.length}</div>
-            <span className="font-bold">Ver Pedido</span>
-          </div>
-          <span className="text-xl font-black">Gs. {total.toLocaleString()}</span>
         </div>
-      </div>
 
-      {/* WEIGHT MODAL */}
-      {showWeightModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass weight-modal">
-             <div className="modal-header">
-               <Scale size={24} color="var(--primary)" />
-               <h2>Pesar {selectedProduct?.name}</h2>
-               <button onClick={() => setShowWeightModal(false)} className="close-x"><X /></button>
-             </div>
-             
-             <div className="weight-display">
-               <input 
-                 type="number" 
-                 value={weightInput}
-                 onChange={(e) => setWeightInput(e.target.value)}
-                 step="0.001"
-                 autoFocus
-               />
-               <span className="unit-label">kg</span>
-             </div>
-
-             <div className="quick-weight-grid">
-                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.1).toFixed(3))}>+100g</button>
-                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.25).toFixed(3))}>+250g</button>
-                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.5).toFixed(3))}>+500g</button>
-                <button onClick={() => setWeightInput((parseFloat(weightInput) + 1).toFixed(3))}>+1kg</button>
-                <button onClick={() => setWeightInput('0.250')}>1/4 kg</button>
-                <button onClick={() => setWeightInput('0.500')}>1/2 kg</button>
-                <button onClick={() => setWeightInput('0.750')}>3/4 kg</button>
-                <button onClick={() => setWeightInput('0')} className="clear-w">Cero</button>
-             </div>
-
-             <div className="modal-actions-footer full-width">
-                <button onClick={() => setShowWeightModal(false)} className="btn-cancel">Cancelar</button>
-                <button onClick={addWeightToCart} className="btn-save pay">Agregar Gs. {(selectedProduct?.price * parseFloat(weightInput || 0)).toLocaleString()}</button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* PAYMENT MODAL */}
-      {showPaymentModal && (
-        <div className="modal-overlay">
-          <div className="modal-content glass payment-modal">
-            <div className="modal-header">
-              <h2>Finalizar Venta</h2>
-              <button onClick={() => setShowPaymentModal(false)} className="close-x"><X /></button>
-            </div>
+        {/* RIGHT COLUMN: CART ASIDE (Offcanvas on Mobile, Col on Desktop) */}
+        <div className={`col-12 col-md-4 col-lg-4 cart-wrapper ${showCartMobile ? 'mobile-show' : 'mobile-hide'}`}>
+          <div className="card h-100 border-0 shadow-sm rounded-4 d-flex flex-column overflow-hidden cart-card mx-auto">
             
-            <div className="payment-summary">
-               <div className="sum-row"><span>Total a pagar:</span> <strong>Gs. {total.toLocaleString()}</strong></div>
-            </div>
-
-            <div className="payment-detail-list">
-              <span className="detail-title">Detalle de la venta:</span>
-              <div className="detail-items-scroll">
-                {cart.map(item => (
-                  <div key={item.id} className="detail-item-row">
-                    <span>{item.name} x{item.quantity} {item.unit === 'Kg' ? 'kg' : ''}</span>
-                    <span>Gs. {(item.price * item.quantity).toLocaleString()}</span>
-                  </div>
-                ))}
+            <div className="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center flex-shrink-0">
+              <h5 className="mb-0 fw-bold d-flex align-items-center text-dark">
+                <ShoppingCart size={20} className="me-2 text-success" /> 
+                Carrito
+                <span className="badge bg-success ms-2 rounded-pill">{cart.length}</span>
+              </h5>
+              <div className="d-flex gap-2">
+                <button className="btn btn-sm btn-outline-danger px-3 rounded-pill fw-bold" onClick={() => setCart([])}>Limpiar</button>
+                <button className="btn btn-sm btn-light d-md-none" onClick={() => setShowCartMobile(false)}><X /></button>
               </div>
             </div>
 
-            <div className="payment-options">
-               <button className={`pay-option ${paymentMethod === 'Efectivo' ? 'active' : ''}`} onClick={() => setPaymentMethod('Efectivo')}>
-                 <DollarSign size={24} /> Efectivo
-               </button>
-               <button className={`pay-option ${paymentMethod === 'Transferencia' ? 'active' : ''}`} onClick={() => setPaymentMethod('Transferencia')}>
-                 <CreditCard size={24} /> Transferencia
-               </button>
+            <div className="card-body overflow-auto p-2 bg-light d-flex flex-column gap-2" style={{ flex: 1 }}>
+              {cart.length === 0 ? (
+                <div className="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
+                  <ShoppingBag size={50} className="mb-2" />
+                  <span>El carrito está vacío</span>
+                </div>
+              ) : cart.map(item => (
+                <div key={item.id} className="bg-white rounded-3 p-2 border shadow-sm d-flex align-items-center">
+                  <div className="flex-grow-1 overflow-hidden pe-2">
+                    <div className="fw-bold text-truncate" style={{fontSize: '0.9rem'}}>{item.name}</div>
+                    <div className="text-success fw-semibold small">Gs. {(item.price * item.quantity).toLocaleString()}</div>
+                  </div>
+                  
+                  <div className="d-flex align-items-center bg-light rounded-pill border p-1" style={{minWidth: '85px'}}>
+                    <button className="btn btn-sm btn-white text-dark rounded-circle p-0" style={{width: '24px', height: '24px'}} onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? -0.1 : -1)}>
+                      <Minus size={14} />
+                    </button>
+                    <span className="mx-1 text-center fw-bold small flex-grow-1" style={{minWidth: '25px'}}>
+                      {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(3)}
+                    </span>
+                    <button className="btn btn-sm btn-white text-dark rounded-circle p-0" style={{width: '24px', height: '24px'}} onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? 0.1 : 1)}>
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                  
+                  <button className="btn btn-sm text-danger border-0 ms-1 p-1" onClick={() => updateQuantity(item.id, -item.quantity)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
             </div>
 
-            <div className="modal-actions-footer full-width">
-               <button onClick={() => setShowPaymentModal(false)} className="btn-cancel">Atrás</button>
-               <button onClick={handleCompleteSale} className="btn-save pay">Confirmar Venta</button>
+            <div className="card-footer bg-white border-top p-3 flex-shrink-0">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <span className="text-muted fw-bold">TOTAL</span>
+                <span className="fs-3 fw-bold text-success">Gs. {total.toLocaleString()}</span>
+              </div>
+              <button 
+                className="btn btn-success btn-lg w-100 rounded-pill fw-bold py-3 shadow-none" 
+                disabled={cart.length === 0}
+                onClick={() => setShowPaymentModal(true)}
+              >
+                Cobrar Ahora
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* MOBILE TRIGGER CART BUTTON */}
+      <div className="d-md-none position-fixed bottom-0 start-0 w-100 p-3 no-print z-3">
+        <button 
+          className="btn btn-success w-100 rounded-pill py-3 px-4 shadow-lg d-flex justify-content-between align-items-center"
+          onClick={() => setShowCartMobile(true)}
+        >
+          <div className="d-flex align-items-center fw-bold">
+            <span className="badge bg-white text-success rounded-pill px-2 py-1 me-2" style={{lineHeight: 1}}>{cart.length}</span>
+            Ver Pedido
+          </div>
+          <span className="fw-bold fs-5">Gs. {total.toLocaleString()}</span>
+        </button>
+      </div>
+
+      {/* MODALS */}
+      {(showWeightModal || showPaymentModal) && <div className="modal-backdrop fade show"></div>}
+      
+      {/* WEIGHT MODAL */}
+      <div className={`modal fade ${showWeightModal ? 'show d-block' : ''}`} tabIndex="-1">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content border-0 shadow-lg rounded-4">
+            <div className="modal-header border-0 pb-0">
+              <h5 className="modal-title fw-bold text-success d-flex align-items-center">
+                <Scale className="me-2" /> Pesar: {selectedProduct?.name}
+              </h5>
+              <button type="button" className="btn-close" onClick={() => setShowWeightModal(false)}></button>
+            </div>
+            <div className="modal-body text-center">
+              <div className="d-flex align-items-center justify-content-center bg-light border border-2 border-success rounded-4 p-3 mb-4">
+                <input 
+                  type="number" 
+                  className="form-control text-center bg-transparent border-0 fw-bold" 
+                  style={{fontSize: '3rem', maxWidth: '60%'}}
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                  step="0.001"
+                  autoFocus
+                />
+                <span className="fs-2 text-muted fw-bold border-start ps-3 ms-2">kg</span>
+              </div>
+
+              <div className="row g-2 mb-3">
+                {['+0.100', '+0.250', '+0.500', '+1.000', '0.250', '0.500', '0.750'].map(val => (
+                  <div className="col-3" key={val}>
+                    <button 
+                      className="btn btn-outline-secondary w-100 fw-bold h-100 p-2" 
+                      onClick={() => {
+                        if (val.startsWith('+')) {
+                          setWeightInput((parseFloat(weightInput || 0) + parseFloat(val)).toFixed(3))
+                        } else {
+                          setWeightInput(parseFloat(val).toFixed(3))
+                        }
+                      }}
+                    >
+                      {val.startsWith('+') ? val.replace('+0.', '+').replace('+1.', '+1') + (val.startsWith('+1')?'kg':'g') : val.replace('0.', '')+'g'}
+                    </button>
+                  </div>
+                ))}
+                <div className="col-3">
+                  <button className="btn btn-danger w-100 fw-bold h-100 p-2" onClick={() => setWeightInput('0')}>Cero</button>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer border-0 pt-0">
+              <button type="button" className="btn btn-light rounded-pill px-4 fw-bold" onClick={() => setShowWeightModal(false)}>Cancelar</button>
+              <button type="button" className="btn btn-success rounded-pill px-4 fw-bold" onClick={addWeightToCart}>
+                Agregar (Gs. {(selectedProduct?.price * parseFloat(weightInput || 0)).toLocaleString()})
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PAYMENT MODAL */}
+      <div className={`modal fade ${showPaymentModal ? 'show d-block' : ''}`} tabIndex="-1">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content border-0 shadow-lg rounded-4">
+            <div className="modal-header border-0">
+              <h4 className="modal-title fw-bold text-dark">Finalizar Venta</h4>
+              <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
+            </div>
+            <div className="modal-body">
+              <div className="bg-success bg-opacity-10 rounded-4 p-3 mb-4 text-center border border-success border-opacity-25">
+                <span className="text-secondary fw-bold text-uppercase small letter-spacing-1">Total a Pagar</span>
+                <div className="fs-1 fw-bold text-success">Gs. {total.toLocaleString()}</div>
+              </div>
+
+              <div className="d-flex gap-2 mb-4">
+                <button 
+                  className={`btn flex-grow-1 p-3 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-2 ${paymentMethod === 'Efectivo' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
+                  onClick={() => setPaymentMethod('Efectivo')}
+                >
+                  <DollarSign size={24} /> Efectivo
+                </button>
+                <button 
+                  className={`btn flex-grow-1 p-3 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-2 ${paymentMethod === 'Transferencia' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
+                  onClick={() => setPaymentMethod('Transferencia')}
+                >
+                  <CreditCard size={24} /> Transferencia
+                </button>
+              </div>
+
+              {isEfectivo && (
+                <div className="form-group mb-4">
+                  <label className="form-label text-muted fw-bold">Monto Recibido</label>
+                  <div className="input-group input-group-lg shadow-sm border rounded-pill overflow-hidden">
+                    <span className="input-group-text bg-white border-0 fw-bold text-muted ps-4">Gs.</span>
+                    <input 
+                      type="number" 
+                      className="form-control border-0 fw-bold" 
+                      placeholder="0"
+                      value={receivedAmount}
+                      onChange={e => setReceivedAmount(e.target.value)}
+                    />
+                  </div>
+                  {(Number(receivedAmount) >= total) && (
+                    <div className="alert alert-success mt-3 mb-0 rounded-4 d-flex justify-content-between align-items-center fw-bold">
+                      <span>Vuelto a entregar:</span>
+                      <span className="fs-4">Gs. {(Number(receivedAmount) - total).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {(Number(receivedAmount) > 0 && Number(receivedAmount) < total) && (
+                    <div className="text-danger mt-2 small fw-bold ps-2">Montón insuficiente.</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer border-0 mt-2">
+              <button type="button" className="btn btn-light rounded-pill px-4 fw-bold w-100 mb-2 py-3" onClick={() => setShowPaymentModal(false)}>Atrás</button>
+              <button 
+                type="button" 
+                className="btn btn-success rounded-pill px-4 fw-bold w-100 py-3 shadow-sm fs-5" 
+                onClick={handleCompleteSale}
+                disabled={!isValidPayment}
+              >
+                Confirmar Venta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <style>{`
-        .pos-container { height: calc(100vh - 90px); padding: 10px; }
-        .pos-layout { display: grid; grid-template-columns: 1fr 380px; gap: 15px; height: 100%; position: relative; }
+        /* Scrolled utilities */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .text-truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+        .transition-transform { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         
-        .products-section { display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
-        .search-bar { display: flex; align-items: center; padding: 12px 20px; border-radius: 20px; gap: 12px; border: 1px solid var(--border); }
-        .search-bar input { background: none; border: none; font-size: 1.1rem; color: var(--text-main); flex: 1; outline: none; }
-        .clear-search { cursor: pointer; opacity: 0.5; }
-        
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; overflow-y: auto; padding-bottom: 20px; }
-        .product-item { padding: 12px; border-radius: 18px; text-align: left; display: flex; flex-direction: column; gap: 8px; transition: 0.2s; border: 1px solid var(--border); position: relative; cursor: pointer; }
-        .p-badge { position: absolute; top: 8px; right: 8px; font-size: 9px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; font-weight: 800; }
-        .p-name { font-weight: 700; font-size: 0.95rem; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-        .p-stock { font-size: 0.75rem; color: var(--text-muted); }
-        .p-price { font-weight: 900; color: var(--primary); font-size: 1.1rem; margin-top: auto; }
-
-        .checkout-aside { display: flex; flex-direction: column; border-radius: 25px; border: 1px solid var(--border); overflow: hidden; background: var(--bg-card); transition: 0.3s; }
-        .cart-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .cart-header h3 { font-size: 1.1rem; margin: 0; }
-        
-        .cart-items { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; }
-        .cart-item { padding: 10px; border-radius: 14px; background: rgba(255,255,255,0.05); display: flex; gap: 10px; align-items: center; border: 1px solid var(--border); }
-        .item-details { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .item-name { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-price { font-size: 0.8rem; color: var(--text-muted); }
-        
-        .qty-controls { display: flex; align-items: center; gap: 8px; background: var(--bg-main); padding: 3px; border-radius: 10px; }
-        .qty-controls button { width: 24px; height: 24px; border-radius: 7px; border: none; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .qty-val { font-weight: 800; font-size: 0.85rem; min-width: 40px; text-align: center; }
-        .remove-item { color: var(--danger); padding: 5px; cursor: pointer; background: none; border: none; opacity: 0.5; }
-
-        .checkout-footer { padding: 1.5rem; border-top: 2px solid var(--border); }
-        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .total-amount { font-size: 1.8rem; font-weight: 900; color: var(--primary); }
-        .pay-button { width: 100%; padding: 18px; border-radius: 18px; background: var(--primary); color: white; font-weight: 900; font-size: 1.1rem; border: none; cursor: pointer; box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3); }
-
-        .mobile-cart-bar { position: fixed; bottom: 65px; left: 10px; right: 10px; padding: 10px 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 900; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.3); background: var(--primary); color: white; cursor: pointer; }
-        .cart-count-badge { background: white; color: var(--primary); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
-
-        /* WEIGHT MODAL STYLES */
-        .weight-modal { max-width: 450px !important; }
-        .weight-display { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 1.5rem 0; background: var(--bg-main); padding: 20px; border-radius: 20px; border: 2px solid var(--primary); }
-        .weight-display input { background: none; border: none; font-size: 3rem; font-weight: 900; color: var(--text-main); width: 180px; text-align: center; outline: none; }
-        .unit-label { font-size: 1.5rem; font-weight: 800; color: var(--text-muted); border-left: 2px solid var(--border); padding-left: 15px; }
-        
-        .quick-weight-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
-        .quick-weight-grid button { padding: 12px 5px; border-radius: 12px; border: 1px solid var(--border); background: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
-        .quick-weight-grid button:hover { border-color: var(--primary); color: var(--primary); }
-        .clear-w { grid-column: span 4; background: #fff5f5 !important; color: #ff4d4d !important; border-color: #ffd8d8 !important; }
-
-        .payment-summary { padding: 20px; background: rgba(34, 197, 94, 0.1); border-radius: 20px; margin-bottom: 1rem; border: 1px dashed var(--primary); }
-        .sum-row { display: flex; justify-content: space-between; align-items: center; }
-        .sum-row strong { font-size: 1.8rem; color: var(--primary); }
-        
-        .payment-detail-list { margin-bottom: 1.5rem; }
-        .detail-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 800; margin-bottom: 8px; display: block; }
-        .detail-items-scroll { max-height: 120px; overflow-y: auto; background: var(--bg-main); border-radius: 15px; padding: 10px; border: 1px solid var(--border); }
-        .detail-item-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .detail-item-row:last-child { border: none; }
-        
-        .payment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
-        .pay-option { padding: 15px; border-radius: 18px; border: 2px solid var(--border); background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 700; transition: 0.2s; }
-        .pay-option.active { border-color: var(--primary); color: var(--primary); background: rgba(34, 197, 94, 0.05); }
+        .product-card:hover { border-color: #198754 !important; transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; z-index: 10; }
+        .product-card .add-btn { opacity: 0.9; }
+        .product-card:hover .add-btn { background: #198754; color: white; opacity: 1; }
 
         @media (max-width: 767px) {
-          .pos-layout { grid-template-columns: 1fr; }
-          .checkout-aside { position: fixed; top: 0; right: -100%; width: 92%; height: 100%; z-index: 1100; border-radius: 0; box-shadow: -10px 0 30px rgba(0,0,0,0.2); transition: 0.3s; pointer-events: none; }
-          .checkout-aside.mobile-visible { right: 0; pointer-events: all; }
-          .products-grid { padding-bottom: 150px; grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
-          .product-item { display: flex; flex-direction: column; justify-content: space-between; padding: 12px; border-radius: 20px; text-align: left; cursor: pointer; transition: 0.3s; position: relative; overflow: hidden; height: 110px; border: 1px solid var(--border); background: white !important; }
-          .product-item:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
-          .p-badge { position: absolute; top: 8px; right: 8px; background: rgba(34, 197, 94, 0.1); color: var(--primary); padding: 2px 8px; border-radius: 8px; font-size: 0.65rem; font-weight: 800; }
-          .p-info { display: flex; flex-direction: column; gap: 4px; }
-          .p-name { font-weight: 800; font-size: 0.75rem; color: var(--text-main); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-          .p-stock { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
-          .p-price { font-weight: 900; font-size: 1rem; color: var(--primary); }
-          .pos-container { height: auto; }
+          .mobile-hide { display: none !important; }
+          .mobile-show { 
+            display: block !important; 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: rgba(0,0,0,0.5); z-index: 1050; padding: 20px;
+          }
+          .mobile-show .cart-card { 
+            height: calc(100vh - 40px) !important; max-width: 450px; margin: auto; 
+            animation: slideUp 0.3s ease forwards;
+          }
+          .pos-container { padding-bottom: 90px !important; }
         }
 
-        @media (min-width: 768px) {
-          .mobile-only { display: none !important; }
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
       `}</style>
     </div>

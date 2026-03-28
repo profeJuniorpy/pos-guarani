@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ShoppingCart, Package, DollarSign, BarChart2, Settings, Home, User, LogOut, ShieldCheck, MapPin, ChevronDown, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ShoppingCart, Package, DollarSign, BarChart2, Settings, Home, ShieldCheck, LogOut, MapPin, ChevronDown, Plus, Menu, X } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useBranding } from '../../context/BrandingContext';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +10,8 @@ export const Navbar = () => {
   const { branding } = useBranding();
   const { user, login, logout, isAdmin } = useAuth();
   const { branches, activeBranch, changeBranch, addBranch } = useBranches();
+  
+  const [isNavCollapsed, setIsNavCollapsed] = useState(true);
   const [showBranchList, setShowBranchList] = useState(false);
 
   const handleAdminToggle = () => {
@@ -32,287 +34,122 @@ export const Navbar = () => {
   };
   
   const navItems = [
-    { path: '/', icon: <Home size={20} />, label: 'Inicio' },
-    { path: '/pos', icon: <ShoppingCart size={20} />, label: 'Venta' },
-    { path: '/inventory', icon: <Package size={20} />, label: 'Stock' },
-    { path: '/cashier', icon: <DollarSign size={20} />, label: 'Caja' },
+    { path: '/', icon: <Home size={18} className="me-2" />, label: 'Inicio' },
+    { path: '/pos', icon: <ShoppingCart size={18} className="me-2" />, label: 'Venta' },
+    { path: '/inventory', icon: <Package size={18} className="me-2" />, label: 'Stock' },
+    { path: '/cashier', icon: <DollarSign size={18} className="me-2" />, label: 'Caja' },
   ];
 
   if (isAdmin) {
-    navItems.push({ path: '/reports', icon: <BarChart2 size={20} />, label: 'Reportes' });
-    navItems.push({ path: '/settings', icon: <Settings size={20} />, label: 'Ajustes' });
+    navItems.push({ path: '/reports', icon: <BarChart2 size={18} className="me-2" />, label: 'Reportes' });
+    navItems.push({ path: '/settings', icon: <Settings size={18} className="me-2" />, label: 'Ajustes' });
   }
 
   return (
-    <nav className="nav-container glass">
-      <div className="nav-logo desktop-only">
-        {branding.logoUrl ? (
-          <img src={branding.logoUrl} alt="Logo" className="logo-img" />
-        ) : (
-          <div className="logo-placeholder"><Package /></div>
-        )}
-        <div className="logo-text">
-          <span>{branding.businessName}</span>
-          <small className="role-tag">{isAdmin ? 'Administrador' : (user?.name || 'Usuario')}</small>
+    <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top no-print">
+      <div className="container-fluid">
+        
+        {/* Brand */}
+        <Link className="navbar-brand d-flex align-items-center fw-bold text-success" to="/">
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt="Logo" width="30" height="30" className="d-inline-block align-text-top me-2 rounded-circle" />
+          ) : (
+            <Package className="me-2 text-success" />
+          )}
+          San Lucas <span className="text-dark ms-1">POS</span>
+        </Link>
+        
+        {/* Mobile Toggle */}
+        <button 
+          className="navbar-toggler border-0" 
+          type="button" 
+          onClick={() => setIsNavCollapsed(!isNavCollapsed)}
+        >
+          {isNavCollapsed ? <Menu /> : <X />}
+        </button>
+
+        {/* Collapsible Content */}
+        <div className={`collapse navbar-collapse ${!isNavCollapsed ? 'show' : ''}`}>
+          
+          {/* Main Links */}
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0 mt-3 mt-lg-0">
+            {navItems.map((item) => (
+              <li className="nav-item" key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`nav-link fw-semibold px-3 rounded ${location.pathname === item.path ? 'active bg-success bg-opacity-10 text-success' : 'text-dark'}`}
+                  onClick={() => setIsNavCollapsed(true)}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          
+          {/* Right Side Tools */}
+          <div className="d-flex align-items-lg-center flex-column flex-lg-row gap-3">
+            
+            {/* Branch Selector Dropdown */}
+            <div className="dropdown">
+              <button 
+                className="btn btn-outline-secondary d-flex align-items-center justify-content-between w-100 px-3 rounded-pill" 
+                type="button" 
+                onClick={() => setShowBranchList(!showBranchList)}
+              >
+                <div className="d-flex align-items-center text-truncate" style={{maxWidth: '150px'}}>
+                  <MapPin size={16} className="text-success me-2 flex-shrink-0" />
+                  <span className="fw-semibold text-truncate small">
+                    {activeBranch?.name || 'Cargando...'}
+                  </span>
+                </div>
+                <ChevronDown size={14} className="ms-2" />
+              </button>
+              
+              <ul className={`dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2 ${showBranchList ? 'show' : ''}`} style={{minWidth: '220px'}}>
+                <li><h6 className="dropdown-header">Cambiar Sucursal</h6></li>
+                {branches.map(b => (
+                  <li key={b.id}>
+                    <button 
+                      className={`dropdown-item d-flex justify-content-between align-items-center py-2 ${b.id === activeBranch?.id ? 'active bg-success' : ''}`}
+                      onClick={() => { changeBranch(b); setShowBranchList(false); setIsNavCollapsed(true); }}
+                    >
+                      <div>
+                        <div className="fw-bold">{b.name}</div>
+                        <small className={b.id === activeBranch?.id ? 'text-white-50' : 'text-muted'}>{b.address}</small>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+                {isAdmin && (
+                  <>
+                    <li><hr className="dropdown-divider" /></li>
+                    <li>
+                      <button className="dropdown-item text-success fw-bold py-2" onClick={() => { handleAddBranch(); setShowBranchList(false); }}>
+                        <Plus size={16} className="me-2" /> Nueva Sucursal
+                      </button>
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+            
+            {/* User Profile / Admin Toggle */}
+            <button 
+              className={`btn btn-sm rounded-pill fw-bold px-3 d-flex align-items-center justify-content-center ${isAdmin ? 'btn-danger' : 'btn-light border'}`} 
+              onClick={() => { handleAdminToggle(); setIsNavCollapsed(true); }}
+              title={isAdmin ? "Cerrar sesión Admin" : "Modo Administrador"}
+              style={{height: '38px'}}
+            >
+              {isAdmin ? (
+                <><LogOut size={16} className="me-2" /> Admin Activo</>
+              ) : (
+                <><ShieldCheck size={16} className="me-2 text-success" /> {user?.name || 'Usuario'}</>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-
-      <div className="branch-selector-wrapper">
-        <button className="branch-active glass" onClick={() => setShowBranchList(!showBranchList)}>
-          <MapPin size={16} color="var(--primary)" />
-          <span className="branch-name-text">{activeBranch?.name || 'Cargando...'}</span>
-          <ChevronDown size={14} className={showBranchList ? 'rotate' : ''} />
-        </button>
-        
-        {showBranchList && (
-          <div className="branch-dropdown glass animate-slide-up">
-            <div className="dropdown-header">Cambiar Sucursal</div>
-            {branches.map(b => (
-              <button key={b.id} className={`branch-option ${b.id === activeBranch?.id ? 'active' : ''}`} onClick={() => { changeBranch(b); setShowBranchList(false); }}>
-                <div className="option-info">
-                   <strong>{b.name}</strong>
-                   <small>{b.address}</small>
-                </div>
-                {b.id === activeBranch?.id && <div className="active-dot"></div>}
-              </button>
-            ))}
-            {isAdmin && (
-              <button className="add-branch-btn" onClick={handleAddBranch}>
-                <Plus size={14} /> Nueva Sucursal
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <div className="nav-links">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`nav-link ${location.pathname === item.path ? 'active' : ''}`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="nav-user">
-        <button className="auth-btn" onClick={handleAdminToggle} title={isAdmin ? "Cerrar sesión Admin" : "Modo Administrador"}>
-          {isAdmin ? <LogOut size={20} color="var(--danger)" /> : <ShieldCheck size={20} />}
-        </button>
-      </div>
-
-      <style>{`
-        .nav-container {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          height: 55px;
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-          padding: 0 5px;
-          z-index: 1000;
-          background: rgba(34, 197, 94, 0.95) !important;
-          backdrop-filter: blur(10px);
-          border-top: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .nav-link {
-          color: #000000 !important;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-decoration: none;
-          gap: 2px;
-          transition: 0.2s;
-        }
-
-        .nav-link span {
-          font-size: 10px;
-          font-weight: 700;
-        }
-
-        .nav-link.active {
-          color: #ffffff !important;
-          background: rgba(0, 0, 0, 0.15);
-          border-radius: 12px;
-          padding: 4px 10px;
-        }
-
-        .nav-logo {
-          display: none;
-        }
-
-        @media (min-width: 768px) {
-          .nav-container {
-            top: 0;
-            left: 0;
-            width: 220px;
-            height: 100vh;
-            flex-direction: column;
-            justify-content: flex-start;
-            padding: 20px 0;
-            border-right: 1px solid var(--border);
-            background: var(--primary) !important;
-            border-top: none;
-          }
-
-          .nav-link {
-            flex-direction: row;
-            font-size: 15px;
-            gap: 12px;
-            width: 100%;
-            padding: 10px 16px;
-            border-radius: 0;
-          }
-          
-          .nav-link span { font-size: 15px; }
-
-          .nav-logo {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            width: 100%;
-          }
-
-          .logo-text span {
-            font-weight: 900;
-            font-size: 15px;
-            color: #000000;
-          }
-
-          .role-tag {
-            background: rgba(0, 0, 0, 0.08);
-            color: #000000;
-            padding: 2px 8px;
-            font-size: 10px;
-            border-radius: 6px;
-          }
-
-          .logo-img {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: 2px solid rgba(0,0,0,0.1);
-          }
-        }
-
-        /* BRANCH SELECTOR STYLES */
-        .branch-selector-wrapper {
-          position: relative;
-          padding: 0 12px;
-          margin-bottom: 10px;
-          width: 100%;
-        }
-
-        .branch-active {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 10px;
-          border-radius: 10px;
-          border: 1px solid rgba(0,0,0,0.1);
-          background: rgba(255,255,255,0.1);
-          color: #000000;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .branch-name-text {
-          flex: 1;
-          font-weight: 700;
-          font-size: 12px;
-          text-align: left;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .rotate { transform: rotate(180deg); }
-
-        .branch-dropdown {
-          position: absolute;
-          top: 100%;
-          left: 12px;
-          right: 12px;
-          margin-top: 5px;
-          padding: 5px;
-          border-radius: 12px;
-          border: 1px solid var(--border);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-          z-index: 1001;
-          background: var(--bg-card);
-        }
-
-        .dropdown-header {
-          padding: 6px 10px;
-          font-size: 9px;
-          font-weight: 800;
-          color: var(--text-muted);
-          text-transform: uppercase;
-        }
-
-        .branch-option {
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 10px;
-          border-radius: 8px;
-          border: none;
-          background: none;
-          cursor: pointer;
-        }
-
-        .branch-option strong { font-size: 12px; }
-        .branch-option small { font-size: 10px; opacity: 0.6; }
-
-        .active-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--primary);
-        }
-
-        @media (max-width: 767px) {
-          .nav-container {
-            height: 55px;
-            padding: 0 2px;
-          }
-          .nav-links {
-            flex: 1;
-            justify-content: space-evenly;
-            display: flex;
-            align-items: center;
-          }
-          .nav-link {
-            min-width: 45px;
-            padding: 0;
-          }
-          .nav-link svg { width: 18px; height: 18px; }
-          .branch-selector-wrapper { 
-            width: auto;
-            margin: 0;
-            padding: 0;
-          }
-          .branch-active { 
-            background: none; 
-            border: none; 
-            padding: 8px;
-          }
-          .branch-name-text { display: none; }
-          .nav-user { padding-right: 5px; }
-          .nav-user svg { width: 18px; height: 18px; }
-        }
-      `}</style>
     </nav>
   );
 };

@@ -16,51 +16,22 @@ function App() {
       <AuthProvider>
         <BranchProvider>
           <BrandingProvider>
-            <div className="app-container">
-            <Navbar />
-            <main className="main-content">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/pos" element={<POS />} />
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/cashier" element={<Cashier />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </main>
-          </div>
-        </BrandingProvider>
-      </BranchProvider>
-    </AuthProvider>
-
-      <style>{`
-        .app-container {
-          display: flex;
-          flex-direction: column;
-          min-height: 100vh;
-          padding-bottom: 70px; /* Space for mobile bottom bar */
-        }
-
-        .main-content {
-          flex: 1;
-          padding: 16px;
-          max-width: 1200px;
-          width: 100%;
-          margin: 0 auto;
-        }
-
-        @media (min-width: 768px) {
-          .app-container {
-            flex-direction: row;
-            padding-bottom: 0;
-            padding-left: 240px; /* Space for desktop sidebar */
-          }
-          
-          .main-content {
-            padding: 32px;
-          }
-        }
-      `}</style>
+            <div className="d-flex flex-column min-vh-100 bg-light">
+              <Navbar />
+              <main className="flex-grow-1">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/pos" element={<POS />} />
+                  <Route path="/inventory" element={<Inventory />} />
+                  <Route path="/cashier" element={<Cashier />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </main>
+            </div>
+          </BrandingProvider>
+        </BranchProvider>
+      </AuthProvider>
     </Router>
   );
 }

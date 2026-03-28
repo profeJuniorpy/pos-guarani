@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { Plus, Search, Edit2, Trash2, Camera, Package, AlertCircle, ShoppingBag, FolderRoot, Truck, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Camera, AlertCircle, ShoppingBag, FolderRoot, Truck, X, Download } from 'lucide-react';
 import { BarcodeScanner } from '../components/pos/BarcodeScanner';
 import { useAuth } from '../context/AuthContext';
 import { useBranches } from '../context/BranchContext';
@@ -9,6 +9,7 @@ import { supabase } from '../utils/supabase';
 export const Inventory = () => {
   const { isAdmin } = useAuth();
   const { activeBranch } = useBranches();
+  
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(null); // 'product', 'category', 'supplier'
@@ -79,7 +80,6 @@ export const Inventory = () => {
       productId = await db.products.add(productData);
     }
     
-    // Actualizar stock específico de la sucursal en Dexie
     await db.branch_stock.where({ product_id: productId, branch_id: activeBranch.id }).delete();
     await db.branch_stock.add({ 
       product_id: productId, 
@@ -87,7 +87,6 @@ export const Inventory = () => {
       stock: Number(productForm.stock) 
     });
 
-    // Sync
     syncToCloud('products', { id: productId, ...productData });
     syncToCloud('branch_stock', { product_id: productId, branch_id: activeBranch.id, stock: Number(productForm.stock) });
 
@@ -128,7 +127,6 @@ export const Inventory = () => {
   const handleDelete = async (table, id) => {
     if (confirm(`¿Estás seguro de eliminar este registro?`)) {
       await db[table].delete(id);
-      // Opcional: Eliminar también en Supabase
       await supabase.from(table).delete().eq('id', id);
       loadData();
     }
@@ -148,7 +146,7 @@ export const Inventory = () => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <html>
-        <head><title>Inventario - GuaraniPOS</title>
+        <head><title>Inventario - San Lucas</title>
         <style>body { font-family: sans-serif; padding: 20px; color: #333; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
@@ -164,148 +162,98 @@ export const Inventory = () => {
     printWindow.onload = () => printWindow.print();
   };
 
-  const handleSyncAll = async () => {
-    if (!confirm('¿Deseas subir todo tu inventario actual a la nube de Supabase?')) return;
-    
-    try {
-      alert('Sincronizando... por favor espera.');
-      
-      // Sincronizar Categorías
-      if (categories.length > 0) {
-        await supabase.from('categories').upsert(categories.map(c => ({ id: c.id, name: c.name })));
-      }
-
-      // Sincronizar Proveedores
-      if (suppliers.length > 0) {
-        await supabase.from('suppliers').upsert(suppliers.map(s => ({ id: s.id, name: s.name, phone: s.phone, email: s.email })));
-      }
-
-      // Sincronizar Productos
-      if (products.length > 0) {
-        await supabase.from('products').upsert(products);
-      }
-
-      alert('✅ ¡Sincronización masiva completada con éxito!');
-    } catch (err) {
-      console.error('Error en sincronización masiva:', err);
-      alert('❌ Error al sincronizar. Revisa tu conexión.');
-    }
-  };
-
-  const handleSeedData = async () => {
-    if (!activeBranch) return alert('Selecciona una sucursal primero');
-    if (!confirm('¿Deseas cargar los datos de ejemplo del mercado paraguayo para esta sucursal?')) return;
-
-    try {
-      // 1. Sembrar Categorías
-      const sampleCategories = [
-        { name: 'Almacén' },
-        { name: 'Frutas y Verduras' },
-        { name: 'Carnicería' },
-        { name: 'Bebidas' },
-        { name: 'Limpieza' }
-      ];
-      
-      const catIds = [];
-      for (const cat of sampleCategories) {
-        const id = await db.categories.add(cat);
-        catIds.push({ id, ...cat });
-        await syncToCloud('categories', { id, ...cat });
-      }
-
-      // 2. Sembrar Proveedores
-      const sampleSuppliers = [
-        { name: 'Abasto Central', phone: '021 500 000' },
-        { name: 'Distribuidora del Este', phone: '0981 123 456' },
-        { name: 'Coca-Cola Paraguay', phone: '021 969 000' },
-        { name: 'Frigorífico Concepción', phone: '021 688 000' }
-      ];
-
-      for (const sup of sampleSuppliers) {
-        const id = await db.suppliers.add(sup);
-        await syncToCloud('suppliers', { id, ...sup });
-      }
-
-      // 3. Sembrar Productos y Stock por Sucursal
-      const productsToSeed = [
-        { name: 'Arroz Itapúa (1kg)', price: 6500, cost: 5000, stock: 24, min_stock: 5, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001001' },
-        { name: 'Fideo Federal (500g)', price: 4800, cost: 3500, stock: 30, min_stock: 10, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001002' },
-        { name: 'Tomate Santa Cruz (Kg)', price: 12000, cost: 8000, stock: 15, min_stock: 5, category_id: catIds[1].id, unit: 'Kg', barcode: 'V001' },
-        { name: 'Papa Negra (Kg)', price: 6500, cost: 4000, stock: 20, min_stock: 5, category_id: catIds[1].id, unit: 'Kg', barcode: 'V002' },
-        { name: 'Coca-Cola (2 Litros)', price: 13500, cost: 11000, stock: 12, min_stock: 6, category_id: catIds[3].id, unit: 'Unidad', barcode: '7750106001' },
-        { name: 'Detergente Activo (500ml)', price: 6800, cost: 4500, stock: 10, min_stock: 3, category_id: catIds[4].id, unit: 'Unidad', barcode: '7840001003' },
-        { name: 'Carnaza de Primera (Kg)', price: 48000, cost: 38000, stock: 8, min_stock: 2, category_id: catIds[2].id, unit: 'Kg', barcode: 'C001' }
-      ];
-
-      for (const prod of productsToSeed) {
-        const { stock, ...productData } = prod;
-        const id = await db.products.add(productData);
-        
-        // Agregar stock a la sucursal activa
-        await db.branch_stock.add({
-          product_id: id,
-          branch_id: activeBranch.id,
-          stock: stock
-        });
-
-        await syncToCloud('products', { id, ...productData });
-        await syncToCloud('branch_stock', { product_id: id, branch_id: activeBranch.id, stock });
-      }
-
-      await loadData();
-      alert('✅ ¡Mercado cargado con éxito en esta sucursal!');
-    } catch (err) {
-      console.error('Error al sembrar datos:', err);
-      alert('❌ Error al cargar datos. Intenta de nuevo.');
-    }
-  };
-
   return (
-    <div className="animate-fade inventory-page">
-      <header className="page-header">
-        <div className="header-title">
-          <h1>Gestión de Inventario</h1>
-          <div className="header-actions">
-            <button onClick={handleSeedData} className="seed-data-btn">Cargar Ejemplo</button>
-            <button onClick={handleSyncAll} className="sync-cloud-btn">Sincronizar Nube</button>
-            <button onClick={handlePrintList} className="secondary-btn">Imprimir Informe</button>
-            <button onClick={() => setShowModal(activeTab === 'products' ? 'product' : activeTab === 'categories' ? 'category' : 'supplier')} className="add-btn">
-              <Plus size={20} /> Nuevo {activeTab === 'products' ? 'Producto' : activeTab === 'categories' ? 'Categoría' : 'Proveedor'}
+    <div className="container-fluid pt-3 animate-fade pb-5 mb-5">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h2 className="fw-bold text-dark m-0 d-flex align-items-center">
+          <ShoppingBag className="me-2 text-success" /> Inventario
+        </h2>
+        
+        <div className="d-flex flex-wrap gap-2">
+          {isAdmin && (
+            <button onClick={handlePrintList} className="btn btn-outline-secondary fw-bold rounded-pill shadow-sm">
+              <Download size={18} className="me-1" /> Imprimir
             </button>
+          )}
+          <button 
+            className="btn btn-success fw-bold rounded-pill shadow-sm px-4"
+            onClick={() => setShowModal(activeTab === 'products' ? 'product' : activeTab === 'categories' ? 'category' : 'supplier')}
+          >
+            <Plus size={18} className="me-1" /> Nuevo {activeTab === 'products' ? 'Producto' : activeTab === 'categories' ? 'Categoría' : 'Proveedor'}
+          </button>
+        </div>
+      </div>
+
+      <div className="row mb-4 g-3">
+        <div className="col-12 col-lg-6">
+          <ul className="nav nav-pills p-1 bg-white border shadow-sm rounded-pill w-100 w-md-auto d-flex flex-nowrap overflow-auto no-scrollbar styling-pills">
+            <li className="nav-item flex-grow-1 text-center">
+              <button className={`nav-link rounded-pill fw-bold w-100 ${activeTab === 'products' ? 'active bg-success shadow-sm' : 'text-dark'}`} onClick={() => setActiveTab('products')}>Productos</button>
+            </li>
+            <li className="nav-item flex-grow-1 text-center">
+              <button className={`nav-link rounded-pill fw-bold w-100 ${activeTab === 'categories' ? 'active bg-success shadow-sm' : 'text-dark'}`} onClick={() => setActiveTab('categories')}>Categorías</button>
+            </li>
+            <li className="nav-item flex-grow-1 text-center">
+              <button className={`nav-link rounded-pill fw-bold w-100 ${activeTab === 'suppliers' ? 'active bg-success shadow-sm' : 'text-dark'}`} onClick={() => setActiveTab('suppliers')}>Proveedores</button>
+            </li>
+          </ul>
+        </div>
+        <div className="col-12 col-lg-6">
+          <div className="input-group shadow-sm border rounded-pill bg-white overflow-hidden">
+            <span className="input-group-text bg-white border-0 ps-3">
+              <Search size={20} className="text-muted" />
+            </span>
+            <input 
+              type="text" 
+              className="form-control border-0 py-2 shadow-none" 
+              placeholder={`Buscando en ${activeTab === 'products' ? 'productos' : activeTab === 'categories' ? 'categorías' : 'proveedores'}...`} 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+            {searchTerm && (
+              <span className="input-group-text bg-white border-0 pe-3 cursor-pointer" onClick={() => setSearchTerm('')}>
+                <X size={18} className="text-secondary" style={{cursor: 'pointer'}} />
+              </span>
+            )}
           </div>
         </div>
-
-        <div className="inventory-tabs glass">
-          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}><ShoppingBag size={18} /> Productos</button>
-          <button className={activeTab === 'categories' ? 'active' : ''} onClick={() => setActiveTab('categories')}><FolderRoot size={18} /> Categorías</button>
-          <button className={activeTab === 'suppliers' ? 'active' : ''} onClick={() => setActiveTab('suppliers')}><Truck size={18} /> Proveedores</button>
-        </div>
-        
-        <div className="search-bar glass">
-          <Search size={20} />
-          <input type="text" placeholder={`Buscar en ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-        </div>
-      </header>
+      </div>
 
       {/* VIEW: PRODUCTS */}
       {activeTab === 'products' && (
-        <div className="inventory-grid">
-          {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase())).map(product => (
-            <div key={product.id} className={`inventory-card glass ${product.stock <= product.min_stock ? 'critical' : ''}`}>
-              <div className="card-main">
-                <div className="badge-cat">{categories.find(c => c.id === Number(product.category_id))?.name || 'Gral'}</div>
-                <h3>{product.name}</h3>
-                <p className="sku">{product.barcode || 'Sin SKU'}</p>
-                <div className="stock-info">
-                  <span className="stock-value">{product.stock} {product.unit}s</span>
-                  {product.stock <= product.min_stock && <AlertCircle size={14} color="var(--danger)" />}
-                </div>
-              </div>
-              <div className="card-price">
-                <span className="price">Gs. {product.price.toLocaleString('es-PY')}</span>
-                <div className="card-actions">
-                  <button onClick={() => { setEditingItem(product); setProductForm(product); setShowModal('product'); }} className="btn-icon"><Edit2 size={16} /></button>
-                  <button onClick={() => handleDelete('products', product.id)} className="btn-icon delete"><Trash2 size={16} /></button>
+        <div className="row g-3">
+          {products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.barcode?.includes(searchTerm)).map(product => (
+            <div key={product.id} className="col-12 col-md-6 col-lg-4 col-xl-3">
+              <div className={`card h-100 border-0 shadow-sm rounded-4 transition-transform ${product.stock <= product.min_stock ? 'border border-danger border-2 border-opacity-50' : ''}`}>
+                <div className="card-body p-4 position-relative d-flex flex-column h-100">
+                  <span className="badge bg-light text-dark border position-absolute top-0 end-0 m-3 rounded-pill px-2 py-1">
+                    {categories.find(c => c.id === Number(product.category_id))?.name || 'General'}
+                  </span>
+                  
+                  <h5 className="card-title fw-bold text-dark pe-5 mb-1 mt-1 text-truncate-2" style={{lineHeight: 1.2}}>
+                    {product.name}
+                  </h5>
+                  <small className="text-muted font-monospace mb-3 d-block">{product.barcode || 'Sin Código'}</small>
+                  
+                  <div className="d-flex align-items-center mb-3">
+                    <span className={`fs-5 fw-bold ${product.stock <= product.min_stock ? 'text-danger' : 'text-dark'}`}>
+                      {product.stock} {product.unit}s
+                    </span>
+                    {product.stock <= product.min_stock && <AlertCircle size={18} className="text-danger ms-2" />}
+                  </div>
+                  
+                  <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                    <span className="fs-4 fw-bold text-success">Gs. {product.price.toLocaleString()}</span>
+                    
+                    <div className="d-flex gap-1">
+                      <button onClick={() => { setEditingItem(product); setProductForm(product); setShowModal('product'); }} className="btn btn-light rounded-circle p-2 text-muted border shadow-sm">
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => handleDelete('products', product.id)} className="btn btn-light rounded-circle p-2 text-danger border shadow-sm">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -315,16 +263,22 @@ export const Inventory = () => {
 
       {/* VIEW: CATEGORIES */}
       {activeTab === 'categories' && (
-        <div className="list-grid">
+        <div className="row g-3">
           {categories.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(cat => (
-            <div key={cat.id} className="list-item glass">
-              <div className="item-info">
-                <FolderRoot size={20} color="var(--primary)" />
-                <span className="item-name">{cat.name}</span>
-              </div>
-              <div className="item-actions">
-                 <button onClick={() => { setEditingItem(cat); setCategoryForm(cat); setShowModal('category'); }} className="btn-icon"><Edit2 size={16} /></button>
-                 <button onClick={() => handleDelete('categories', cat.id)} className="btn-icon delete"><Trash2 size={16} /></button>
+            <div key={cat.id} className="col-12 col-md-4 col-lg-3">
+              <div className="card border-0 shadow-sm rounded-4">
+                <div className="card-body p-3 d-flex align-items-center justify-content-between">
+                  <div className="d-flex align-items-center overflow-hidden w-75">
+                    <div className="bg-success bg-opacity-10 rounded-circle p-2 me-3 flex-shrink-0 text-success">
+                      <FolderRoot size={20} />
+                    </div>
+                    <span className="fw-bold fs-6 text-truncate">{cat.name}</span>
+                  </div>
+                  <div className="d-flex gap-1 flex-shrink-0">
+                    <button onClick={() => { setEditingItem(cat); setCategoryForm(cat); setShowModal('category'); }} className="btn btn-sm btn-light text-muted border p-2 rounded-circle"><Edit2 size={14} /></button>
+                    <button onClick={() => handleDelete('categories', cat.id)} className="btn btn-sm btn-light text-danger border p-2 rounded-circle"><Trash2 size={14} /></button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -333,201 +287,166 @@ export const Inventory = () => {
 
       {/* VIEW: SUPPLIERS */}
       {activeTab === 'suppliers' && (
-        <div className="list-grid">
+        <div className="row g-3">
           {suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())).map(sup => (
-            <div key={sup.id} className="list-item glass">
-              <div className="item-info">
-                <Truck size={20} color="var(--secondary)" />
-                <div className="sub-info">
-                  <span className="item-name">{sup.name}</span>
-                  <small>{sup.phone || 'Sin tel.'}</small>
+            <div key={sup.id} className="col-12 col-md-6 col-lg-4">
+              <div className="card border-0 shadow-sm rounded-4">
+                <div className="card-body p-3 d-flex align-items-center justify-content-between">
+                  <div className="d-flex align-items-center overflow-hidden w-75">
+                    <div className="bg-success bg-opacity-10 rounded-circle p-2 me-3 flex-shrink-0 text-success">
+                      <Truck size={20} />
+                    </div>
+                    <div>
+                      <div className="fw-bold text-truncate">{sup.name}</div>
+                      <small className="text-muted text-truncate d-block">{sup.phone || 'Sin tel.'}</small>
+                    </div>
+                  </div>
+                  <div className="d-flex gap-1 flex-shrink-0">
+                    <button onClick={() => { setEditingItem(sup); setSupplierForm(sup); setShowModal('supplier'); }} className="btn btn-sm btn-light text-muted border p-2 rounded-circle"><Edit2 size={14} /></button>
+                    <button onClick={() => handleDelete('suppliers', sup.id)} className="btn btn-sm btn-light text-danger border p-2 rounded-circle"><Trash2 size={14} /></button>
+                  </div>
                 </div>
-              </div>
-              <div className="item-actions">
-                 <button onClick={() => { setEditingItem(sup); setSupplierForm(sup); setShowModal('supplier'); }} className="btn-icon"><Edit2 size={16} /></button>
-                 <button onClick={() => handleDelete('suppliers', sup.id)} className="btn-icon delete"><Trash2 size={16} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* MODAL: PRODUCT */}
-      {showModal === 'product' && (
-        <div className="modal-overlay">
-          <div className="modal-content glass inventory-modal">
-            <div className="modal-header">
-              <h2>{editingItem ? 'Editar' : 'Nuevo'} Producto</h2>
-              <button onClick={closeAllModals} className="close-x"><X size={20} /></button>
+      {/* MODALS */}
+      {showModal && <div className="modal-backdrop fade show"></div>}
+
+      {/* PRODUCT MODAL */}
+      <div className={`modal fade ${showModal === 'product' ? 'show d-block' : ''}`} tabIndex="-1">
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content border-0 shadow-lg rounded-4">
+            <div className="modal-header border-0 pb-0">
+              <h4 className="modal-title fw-bold text-dark">{editingItem ? 'Editar Producto' : 'Nuevo Producto'}</h4>
+              <button type="button" className="btn-close" onClick={closeAllModals}></button>
             </div>
-            <form onSubmit={handleSaveProduct} className="premium-form">
-              <div className="form-group main">
-                <label>Nombre del Producto</label>
-                <input type="text" required value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Precio Venta</label>
-                  <input type="number" required value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} />
+            <div className="modal-body p-4 pt-3">
+              <form id="productForm" onSubmit={handleSaveProduct}>
+                <div className="mb-4">
+                  <label className="form-label text-muted fw-bold">Nombre del Producto</label>
+                  <input type="text" className="form-control form-control-lg fw-bold border-1 shadow-none" required value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} placeholder="Ej. Coca-Cola 2L" />
                 </div>
-                {isAdmin && (
-                  <div className="form-group">
-                    <label>Costo</label>
-                    <input type="number" required value={productForm.cost} onChange={e => setProductForm({...productForm, cost: e.target.value})} />
+                
+                <div className="row g-3 mb-4">
+                  <div className="col-12 col-sm-6">
+                    <label className="form-label text-muted fw-bold">Precio de Venta</label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-end-0">Gs.</span>
+                      <input type="number" className="form-control form-control-lg border-start-0 ps-0 text-success fw-bold" required value={productForm.price || ''} onChange={e => setProductForm({...productForm, price: e.target.value})} />
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Categoría</label>
-                  <select value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})}>
-                    <option value="">Seleccionar...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  {isAdmin && (
+                    <div className="col-12 col-sm-6">
+                      <label className="form-label text-muted fw-bold">Costo Unitario</label>
+                      <div className="input-group">
+                        <span className="input-group-text bg-light border-end-0">Gs.</span>
+                        <input type="number" className="form-control form-control-lg border-start-0 ps-0 text-dark fw-bold" required value={productForm.cost || ''} onChange={e => setProductForm({...productForm, cost: e.target.value})} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label>Unidad</label>
-                  <select value={productForm.unit} onChange={e => setProductForm({...productForm, unit: e.target.value})}>
-                    <option value="Unidad">Unidad</option>
-                    <option value="Kg">Kg</option>
-                    <option value="Litro">Litro</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Stock Actual</label>
-                  <input type="number" required value={productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label>Cód. Barras</label>
-                  <div className="input-with-action">
-                    <input type="text" value={productForm.barcode} onChange={e => setProductForm({...productForm, barcode: e.target.value})} />
-                    <button type="button" onClick={() => setShowScanner(true)} className="inline-scan"><Camera size={18} /></button>
+
+                <div className="row g-3 mb-4">
+                  <div className="col-12 col-sm-6">
+                    <label className="form-label text-muted fw-bold">Categoría</label>
+                    <select className="form-select form-select-lg w-100" value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})}>
+                      <option value="">Seleccionar...</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-12 col-sm-6">
+                    <label className="form-label text-muted fw-bold">Unidad de Medida</label>
+                    <select className="form-select form-select-lg w-100" value={productForm.unit} onChange={e => setProductForm({...productForm, unit: e.target.value})}>
+                      <option value="Unidad">Unidad</option>
+                      <option value="Kg">Kilogramos</option>
+                      <option value="Litro">Litros</option>
+                    </select>
                   </div>
                 </div>
-              </div>
-              <div className="modal-actions-footer">
-                <button type="button" onClick={closeAllModals} className="btn-cancel">Cancelar</button>
-                <button type="submit" className="btn-save">Guardar Cambios</button>
-              </div>
-            </form>
+
+                <div className="row g-3">
+                  <div className="col-6 col-sm-3">
+                    <label className="form-label text-muted fw-bold">Stock Actual</label>
+                    <input type="number" className="form-control form-control-lg" required value={productForm.stock === 0 && !editingItem ? '' : productForm.stock} onChange={e => setProductForm({...productForm, stock: e.target.value})} />
+                  </div>
+                  <div className="col-6 col-sm-3">
+                    <label className="form-label text-muted fw-bold">Stock Mínimo</label>
+                    <input type="number" className="form-control form-control-lg" required value={productForm.min_stock} onChange={e => setProductForm({...productForm, min_stock: e.target.value})} />
+                  </div>
+                  <div className="col-12 col-sm-6">
+                    <label className="form-label text-muted fw-bold">Cod. de Barras (Opcional)</label>
+                    <div className="input-group input-group-lg">
+                      <input type="text" className="form-control" value={productForm.barcode || ''} onChange={e => setProductForm({...productForm, barcode: e.target.value})} placeholder="Escanear..." />
+                      <button type="button" className="btn btn-dark d-flex align-items-center" onClick={() => setShowScanner(true)}>
+                        <Camera size={20} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="modal-footer border-0 p-4 pt-1">
+              <button type="button" className="btn btn-light btn-lg rounded-pill px-4 fw-bold" onClick={closeAllModals}>Cancelar</button>
+              <button type="submit" form="productForm" className="btn btn-success btn-lg rounded-pill px-5 fw-bold shadow-sm">Guardar</button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* MODAL: CATEGORY */}
-      {showModal === 'category' && (
-        <div className="modal-overlay">
-          <div className="modal-content glass mini-modal">
-            <h2>{editingItem ? 'Editar' : 'Nueva'} Categoría</h2>
-            <form onSubmit={handleSaveCategory} className="premium-form">
-              <div className="form-group">
-                <label>Nombre de Categoría</label>
-                <input type="text" required value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} />
-              </div>
-              <div className="modal-actions-footer">
-                <button type="button" onClick={closeAllModals} className="btn-cancel">Cancelar</button>
-                <button type="submit" className="btn-save">Crear Categoría</button>
-              </div>
-            </form>
+      {/* CATEGORY & SUPPLIER MODALS */}
+      <div className={`modal fade ${['category', 'supplier'].includes(showModal) ? 'show d-block' : ''}`} tabIndex="-1">
+        <div className="modal-dialog modal-dialog-centered modal-sm">
+          <div className="modal-content border-0 shadow-lg rounded-4">
+            <div className="modal-header border-0">
+              <h5 className="modal-title fw-bold text-dark">
+                {showModal === 'category' ? (editingItem ? 'Editar Categoría' : 'Nueva Categoría') : (editingItem ? 'Editar Proveedor' : 'Nuevo Proveedor')}
+              </h5>
+              <button type="button" className="btn-close" onClick={closeAllModals}></button>
+            </div>
+            <div className="modal-body">
+              {showModal === 'category' && (
+                <form id="catForm" onSubmit={handleSaveCategory}>
+                  <div className="mb-3">
+                    <label className="form-label text-muted fw-bold">Nombre</label>
+                    <input type="text" className="form-control form-control-lg" required value={categoryForm.name} onChange={e => setCategoryForm({...categoryForm, name: e.target.value})} />
+                  </div>
+                </form>
+              )}
+              {showModal === 'supplier' && (
+                <form id="supForm" onSubmit={handleSaveSupplier}>
+                  <div className="mb-3">
+                    <label className="form-label text-muted fw-bold">Razón Social</label>
+                    <input type="text" className="form-control form-control-lg" required value={supplierForm.name} onChange={e => setSupplierForm({...supplierForm, name: e.target.value})} />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label text-muted fw-bold">Teléfono</label>
+                    <input type="text" className="form-control form-control-lg" value={supplierForm.phone} onChange={e => setSupplierForm({...supplierForm, phone: e.target.value})} />
+                  </div>
+                </form>
+              )}
+            </div>
+            <div className="modal-footer border-0 mt-2">
+              <button type="button" className="btn btn-light rounded-pill px-4 fw-bold mb-2 w-100" onClick={closeAllModals}>Cancelar</button>
+              <button type="submit" form={showModal === 'category' ? 'catForm' : 'supForm'} className="btn btn-success rounded-pill px-4 fw-bold w-100 py-3 shadow-sm pt-2 pb-2">Guardar Registro</button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* MODAL: SUPPLIER */}
-      {showModal === 'supplier' && (
-        <div className="modal-overlay">
-          <div className="modal-content glass mini-modal">
-            <h2>{editingItem ? 'Editar' : 'Nuevo'} Proveedor</h2>
-            <form onSubmit={handleSaveSupplier} className="premium-form">
-              <div className="form-group">
-                <label>Nombre / Razón Social</label>
-                <input type="text" required value={supplierForm.name} onChange={e => setSupplierForm({...supplierForm, name: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label>Teléfono de contacto</label>
-                <input type="text" value={supplierForm.phone} onChange={e => setSupplierForm({...supplierForm, phone: e.target.value})} />
-              </div>
-              <div className="modal-actions-footer">
-                <button type="button" onClick={closeAllModals} className="btn-cancel">Cancelar</button>
-                <button type="submit" className="btn-save">Guardar Proveedor</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* COMPONENT OUTSIDE */}
       {showScanner && (
         <BarcodeScanner onScan={c => { setProductForm({...productForm, barcode: c}); setShowScanner(false); }} onClose={() => setShowScanner(false)} />
       )}
 
       <style>{`
-        .inventory-page { max-width: 1200px; margin: 0 auto; }
-        .header-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        .header-actions { display: flex; gap: 12px; }
-        .seed-data-btn { background: linear-gradient(135.22deg, #22c55e 0%, #16a34a 100%); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); transition: 0.3s; }
-        .seed-data-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4); }
-        .sync-cloud-btn { background: #3ecf8e; color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(62, 207, 142, 0.3); transition: 0.3s; }
-        .sync-cloud-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        
-        .add-btn { background: var(--primary); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
-        .secondary-btn { background: var(--bg-card); color: var(--text-main); padding: 10px 20px; border-radius: 12px; border: 1px solid var(--border); font-weight: 600; }
-
-        .inventory-tabs { display: flex; gap: 5px; padding: 5px; border-radius: 15px; margin-bottom: 1.5rem; width: fit-content; background: rgba(0,0,0,0.1); }
-        .inventory-tabs button { padding: 10px 20px; border-radius: 12px; border: none; background: none; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 8px; transition: 0.3s; cursor: pointer; }
-        .inventory-tabs button.active { background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-
-        .search-bar { display: flex; align-items: center; padding: 12px 20px; border-radius: 15px; gap: 12px; margin-bottom: 2rem; border: 1px solid var(--border); }
-        .search-bar input { flex: 1; background: none; border: none; font-size: 16px; color: var(--text-main); outline: none; }
-
-        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
-        .inventory-card { padding: 1.5rem; border-radius: 20px; border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; position: relative; transition: 0.3s; }
-        .inventory-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .inventory-card.critical { border-left: 6px solid var(--danger); background: rgba(255, 69, 58, 0.05); }
-
-        .badge-cat { position: absolute; top: 1.5rem; right: 1.5rem; background: var(--bg-main); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; color: var(--primary); }
-        .card-main h3 { margin: 1.5rem 0 5px 0; }
-        .sku { font-size: 12px; color: var(--text-muted); font-family: monospace; letter-spacing: 1px; }
-        .stock-info { margin-top: 15px; display: flex; align-items: center; gap: 8px; }
-        .stock-value { font-weight: 800; font-size: 1.1rem; color: var(--text-main); }
-        
-        .card-price { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-        .card-price .price { font-size: 1.3rem; font-weight: bold; color: var(--primary); }
-
-        .btn-icon { padding: 8px; border-radius: 10px; background: var(--bg-main); color: var(--text-muted); border: none; cursor: pointer; }
-        .btn-icon:hover { background: rgba(34, 197, 94, 0.1); color: var(--primary); }
-        .btn-icon.delete:hover { background: rgba(255, 69, 58, 0.1); color: var(--danger); }
-
-        /* LIST VIEW FOR CATS/SUPS */
-        .list-grid { display: flex; flex-direction: column; gap: 10px; max-width: 800px; }
-        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; border-radius: 15px; border: 1px solid var(--border); }
-        .item-info { display: flex; align-items: center; gap: 1.5rem; }
-        .sub-info { display: flex; flex-direction: column; }
-        .item-name { font-weight: 700; font-size: 1.1rem; }
-        .item-actions { display: flex; gap: 10px; }
-
-        /* MODALS */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .modal-content { width: 100%; max-width: 600px; padding: 2.5rem; border-radius: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.4); }
-        .mini-modal { max-width: 450px; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        .close-x { background: none; border: none; color: var(--text-muted); }
-        
-        .premium-form { display: flex; flex-direction: column; gap: 1.5rem; }
-        .form-group label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-muted); font-weight: 700; }
-        .form-group input, .form-group select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-main); font-size: 1rem; outline: none; transition: 0.3s; }
-        .form-group input:focus { border-color: var(--primary); background: white; }
-        .main input { font-size: 1.4rem; font-weight: 800; border-color: var(--primary); }
-
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-        .input-with-action { display: flex; gap: 10px; }
-        .inline-scan { background: var(--primary); color: white; border-radius: 10px; padding: 10px; border: none; }
-        
-        .modal-actions-footer { display: flex; justify-content: flex-end; gap: 15px; margin-top: 2rem; }
-        .btn-cancel { background: none; border: none; color: var(--danger); font-weight: bold; cursor: pointer; padding: 12px 20px; border-radius: 10px; }
-        .btn-cancel:hover { background: rgba(255, 69, 58, 0.1); }
-        .btn-save { background: var(--primary); color: white; border: none; font-weight: 800; padding: 14px 35px; border-radius: 14px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); cursor: pointer; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .text-truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+        .transition-transform { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+        .transition-transform:hover { transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important; border-color: #198754 !important; }
       `}</style>
     </div>
   );
