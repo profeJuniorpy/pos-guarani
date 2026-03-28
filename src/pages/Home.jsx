@@ -1,9 +1,34 @@
+import { useState, useEffect } from 'react';
+import { db } from '../db/db';
+import { useBranches } from '../context/BranchContext';
+import { useBranding } from '../context/BrandingContext';
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Package, DollarSign, BarChart2, PlusCircle, ArrowRight } from 'lucide-react';
-import { useBranding } from '../context/BrandingContext';
 
 export const Home = () => {
   const { branding } = useBranding();
+  const { activeBranch } = useBranches();
+  const [stats, setStats] = useState({ todaySales: 0, totalStock: 0, lowStockCount: 0, transactions: 0 });
+
+  useEffect(() => {
+    loadStats();
+  }, [activeBranch]);
+
+  const loadStats = async () => {
+    if (!activeBranch) return;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const todaySales = await db.sales.where('timestamp').above(today).and(s => s.branch_id === activeBranch.id).toArray();
+    const totalToday = todaySales.reduce((sum, s) => sum + s.total, 0);
+    const branchStock = await db.branch_stock.where('branch_id').equals(activeBranch.id).toArray();
+    const products = await db.products.toArray();
+    let lowStock = 0;
+    branchStock.forEach(bs => {
+      const prod = products.find(p => p.id === bs.product_id);
+      if (prod && bs.stock <= prod.min_stock) lowStock++;
+    });
+    setStats({ todaySales: totalToday, totalStock: branchStock.length, lowStockCount: lowStock, transactions: todaySales.length });
+  };
 
   const quickActions = [
     { label: 'Nueva Venta', icon: <ShoppingCart size={24} />, path: '/pos', color: '#6366f1' },
@@ -16,19 +41,19 @@ export const Home = () => {
     <div className="animate-fade">
       <header className="home-header">
         <h1>¡Hola! 👋</h1>
-        <p>Bienvenido a {branding.businessName}. ¿Qué haremos hoy?</p>
+        <p>Bienvenido a {branding.businessName} - <b>{activeBranch?.name || 'Cargando...'}</b></p>
       </header>
 
       <section className="dashboard-grid">
-        <div className="stats-card glass">
+        <div className="stats-card glass accent-primary">
           <h3>Ventas de Hoy</h3>
-          <p className="stat-value">Gs. 0</p>
-          <span className="stat-label">0 transacciones</span>
+          <p className="stat-value">Gs. {stats.todaySales.toLocaleString('es-PY')}</p>
+          <span className="stat-label">{stats.transactions} transacciones</span>
         </div>
-        <div className="stats-card glass">
+        <div className="stats-card glass accent-secondary">
           <h3>Productos en Stock</h3>
-          <p className="stat-value">0</p>
-          <span className="stat-label">0 alertas de bajo stock</span>
+          <p className="stat-value">{stats.totalStock}</p>
+          <span className="stat-label">{stats.lowStockCount} alertas de bajo stock</span>
         </div>
       </section>
 

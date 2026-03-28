@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/db';
 import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ArrowLeft, ShoppingCart, CheckCircle, Printer, X } from 'lucide-react';
+import { useBranches } from '../context/BranchContext';
 import { supabase } from '../utils/supabase';
 
 export const POS = () => {
+  const { activeBranch } = useBranches();
   const [cart, setCart] = useState([]);
   const [total, setTotal] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -12,12 +14,20 @@ export const POS = () => {
   const [products, setProducts] = useState([]);
   const [orderComplete, setOrderComplete] = useState(false);
 
-  useEffect(() => { loadProducts(); }, []);
+  useEffect(() => { loadProducts(); }, [activeBranch]);
 
   const loadProducts = async () => {
+    if (!activeBranch) return;
     try {
       const p = await db.products.toArray();
-      setProducts(p);
+      const branchStock = await db.branch_stock.where('branch_id').equals(activeBranch.id).toArray();
+      
+      const productsWithBranchStock = p.map(prod => {
+        const stockEntry = branchStock.find(bs => bs.product_id === prod.id);
+        return { ...prod, stock: stockEntry ? stockEntry.stock : 0 };
+      });
+
+      setProducts(productsWithBranchStock);
     } catch (err) {
       console.error("Error cargando productos:", err);
     }
@@ -30,18 +40,26 @@ export const POS = () => {
         total: saleData.total,
         payment_method: saleData.paymentMethod,
         timestamp: saleData.timestamp,
-        items: saleData.items
+        items: saleData.items,
+        branch_id: saleData.branch_id
       }]);
       if (error) throw error;
-      console.log('✅ Sincronización Cloud exitosa');
     } catch (err) {
-      console.warn('⚠️ Fallo sincronización Cloud (se guardó en local):', err.message);
+      console.warn('⚠️ Fallo sincronización Cloud:', err.message);
     }
   };
 
   const addToCart = (product) => {
+    if (product.stock <= 0) {
+      alert("⚠️ No hay stock disponible en esta sucursal");
+      return;
+    }
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
+      if (existing.quantity >= product.stock) {
+         alert("⚠️ No puedes vender más de lo que hay en stock");
+         return;
+      }
       setCart(cart.map(item => 
         item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
       ));
@@ -53,8 +71,13 @@ export const POS = () => {
   const updateQuantity = (id, delta) => {
     setCart(cart ? cart.map(item => {
       if (item.id === id) {
-        const newQty = Math.max(0, item.quantity + delta);
-        return { ...item, quantity: newQty };
+        const product = products.find(p => p.id === id);
+        const newQty = item.quantity + delta;
+        if (newQty > product.stock) {
+           alert("⚠️ Stock insuficiente");
+           return item;
+        }
+        return { ...item, quantity: Math.max(0, newQty) };
       }
       return item;
     }).filter(item => item.quantity > 0) : []);
@@ -66,28 +89,33 @@ export const POS = () => {
   }, [cart]);
 
   const handleCompleteSale = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !activeBranch) return;
     
     try {
       const saleData = {
         timestamp: new Date(),
         items: [...cart],
         total,
-        paymentMethod
+        paymentMethod,
+        branch_id: activeBranch.id
       };
 
-      // 1. Guardado Vital Local (Dexie)
+      // 1. Guardar Venta
       await db.sales.add(saleData);
       
-      // 2. Actualización de Stock Local
+      // 2. Actualizar Stock Local en la Sucursal Específica
       for (const item of cart) {
-        await db.products.update(item.id, {
-          stock: item.stock - item.quantity
-        });
+        const stockEntry = await db.branch_stock.where({ product_id: item.id, branch_id: activeBranch.id }).first();
+        if (stockEntry) {
+           await db.branch_stock.update(stockEntry.id, {
+             stock: stockEntry.stock - item.quantity
+           });
+           // Cloud Sync Stock
+           syncWithCloud('branch_stock', { ...stockEntry, stock: stockEntry.stock - item.quantity });
+        }
       }
 
-      // 3. Intento de Sincronización Cloud (Supabase)
-      // Se hace de forma asíncrona para no bloquear UI
+      // 3. Sync Sale
       syncWithCloud(saleData);
 
       setOrderComplete(true);
@@ -96,7 +124,6 @@ export const POS = () => {
       loadProducts();
     } catch (err) {
       console.error("Error completando la venta:", err);
-      alert("Hubo un error al procesar la venta.");
     }
   };
 

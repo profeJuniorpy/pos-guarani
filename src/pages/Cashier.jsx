@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
-import { db } from '../db/db';
-import { DollarSign, Clock, CheckCircle, AlertCircle, Printer, MinusCircle, Plus, X, History, Edit2 } from 'lucide-react';
+import { useBranches } from '../context/BranchContext';
 import { supabase } from '../utils/supabase';
 
 export const Cashier = () => {
+  const { activeBranch } = useBranches();
   const [session, setSession] = useState(null);
   const [salesToday, setSalesToday] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -14,16 +13,21 @@ export const Cashier = () => {
 
   useEffect(() => {
     loadSession();
-  }, []);
+  }, [activeBranch]);
 
   const loadSession = async () => {
-    const activeSession = await db.cashSessions.where('status').equals('open').first();
+    if (!activeBranch) return;
+    const activeSession = await db.cashSessions
+      .where({ status: 'open', branch_id: activeBranch.id })
+      .first();
+    
     setSession(activeSession);
     
     if (activeSession) {
       const todaySales = await db.sales
         .where('timestamp')
         .above(activeSession.openTime)
+        .and(s => s.branch_id === activeBranch.id)
         .toArray();
       setSalesToday(todaySales);
 
@@ -36,12 +40,13 @@ export const Cashier = () => {
   };
 
   const openRegister = async () => {
-    if (!initialAmount) return alert('Ingresa el monto inicial');
+    if (!initialAmount || !activeBranch) return alert('Ingresa el monto inicial');
     const newSession = {
       openTime: new Date(),
       initialAmount: Number(initialAmount),
       status: 'open',
-      totalSales: 0
+      totalSales: 0,
+      branch_id: activeBranch.id
     };
     await db.cashSessions.add(newSession);
     loadSession();

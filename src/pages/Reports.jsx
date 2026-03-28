@@ -2,22 +2,42 @@ import { useState, useEffect } from 'react';
 import { db } from '../db/db';
 import { TrendingUp, BarChart, PieChart, ArrowUpRight, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useBranches } from '../context/BranchContext';
 
 export const Reports = () => {
   const { isAdmin } = useAuth();
+  const { activeBranch } = useBranches();
   const [sales, setSales] = useState([]);
+  const [branchStocks, setBranchStocks] = useState([]);
   const [products, setProducts] = useState([]);
   const [timeRange, setTimeRange] = useState('Hoy');
 
   useEffect(() => {
     loadData();
-  }, [timeRange]);
+  }, [timeRange, activeBranch]);
 
   const loadData = async () => {
-    const allSales = await db.sales.toArray();
+    if (!activeBranch) return;
+
+    // Cargar datos base
     const allProducts = await db.products.toArray();
-    setSales(allSales);
+    const currentBranchStock = await db.branch_stock.where('branch_id').equals(activeBranch.id).toArray();
+    
+    // Configurar rango de tiempo
+    const dateLimit = new Date();
+    if (timeRange === 'Hoy') dateLimit.setHours(0,0,0,0);
+    else if (timeRange === 'Esta Semana') dateLimit.setDate(dateLimit.getDate() - 7);
+    else if (timeRange === 'Este Mes') dateLimit.setMonth(dateLimit.getMonth() - 1);
+    else dateLimit.setFullYear(2000); // Histórico
+
+    const branchSales = await db.sales
+      .where('branch_id').equals(activeBranch.id)
+      .and(s => s.timestamp >= dateLimit)
+      .toArray();
+
+    setSales(branchSales);
     setProducts(allProducts);
+    setBranchStocks(currentBranchStock);
   };
 
   if (!isAdmin) {
@@ -25,7 +45,7 @@ export const Reports = () => {
       <div className="access-denied glass animate-fade">
         <Lock size={64} color="var(--danger)" />
         <h2>Acceso Restringido</h2>
-        <p>Solo el Administrador puede ver informes de ganancias y utilidad.</p>
+        <p>Solo el Administrador puede ver informes de ganancias y utilidad de las sucursales.</p>
         <p className="hint">Usa el ícono de escudo en el menú para ingresar como administrador.</p>
         <style>{`
           .access-denied { 
@@ -50,7 +70,12 @@ export const Reports = () => {
       return sum + saleProfit;
     }, 0);
 
-    const totalInvestment = products.reduce((sum, p) => sum + (p.cost * p.stock), 0);
+    // Inversión calculada sobre el stock real de ESTA sucursal
+    const totalInvestment = branchStocks.reduce((sum, bs) => {
+      const prod = products.find(p => p.id === bs.product_id);
+      return sum + ((prod?.cost || 0) * (bs.stock || 0));
+    }, 0);
+
     const productsSold = sales.reduce((sum, s) => sum + s.items.reduce((iSum, item) => iSum + item.quantity, 0), 0);
 
     return { totalSales, totalProfit, productsSold, totalInvestment };

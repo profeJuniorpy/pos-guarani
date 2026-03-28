@@ -3,10 +3,12 @@ import { db } from '../db/db';
 import { Plus, Search, Edit2, Trash2, Camera, Package, AlertCircle, ShoppingBag, FolderRoot, Truck, X } from 'lucide-react';
 import { BarcodeScanner } from '../components/pos/BarcodeScanner';
 import { useAuth } from '../context/AuthContext';
+import { useBranches } from '../context/BranchContext';
 import { supabase } from '../utils/supabase';
 
 export const Inventory = () => {
   const { isAdmin } = useAuth();
+  const { activeBranch } = useBranches();
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(null); // 'product', 'category', 'supplier'
@@ -23,15 +25,25 @@ export const Inventory = () => {
   const [categoryForm, setCategoryForm] = useState({ name: '' });
   const [supplierForm, setSupplierForm] = useState({ name: '', phone: '', email: '' });
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [activeBranch]);
 
   const loadData = async () => {
+    if (!activeBranch) return;
+
     const [p, c, s] = await Promise.all([
       db.products.toArray(),
       db.categories.toArray(),
       db.suppliers.toArray()
     ]);
-    setProducts(p);
+
+    // Obtener stock específico de la sucursal activa
+    const branchStock = await db.branch_stock.where('branch_id').equals(activeBranch.id).toArray();
+    const productsWithBranchStock = p.map(prod => {
+      const stockEntry = branchStock.find(bs => bs.product_id === prod.id);
+      return { ...prod, stock: stockEntry ? stockEntry.stock : 0 };
+    });
+
+    setProducts(productsWithBranchStock);
     setCategories(c);
     setSuppliers(s);
   };
@@ -40,25 +52,45 @@ export const Inventory = () => {
     try {
       const { error } = await supabase.from(table).upsert([data]);
       if (error) throw error;
-      console.log(`✅ ${table} sincronizado`);
     } catch (err) {
-      console.warn(`❌ No se pudo sincronizar ${table}:`, err.message);
+      console.warn(`❌ Sync fail ${table}:`, err.message);
     }
   };
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
-    const data = { ...productForm, price: Number(productForm.price), cost: Number(productForm.cost), stock: Number(productForm.stock), min_stock: Number(productForm.min_stock) };
+    if (!activeBranch) return;
+
+    const productData = { 
+      name: productForm.name, 
+      barcode: productForm.barcode, 
+      price: Number(productForm.price), 
+      cost: Number(productForm.cost), 
+      min_stock: Number(productForm.min_stock), 
+      category_id: productForm.category_id, 
+      unit: productForm.unit 
+    };
     
-    let id;
+    let productId;
     if (editingItem) {
-      id = editingItem.id;
-      await db.products.update(id, data);
+      productId = editingItem.id;
+      await db.products.update(productId, productData);
     } else {
-      id = await db.products.add(data);
+      productId = await db.products.add(productData);
     }
     
-    syncToCloud('products', { id, ...data });
+    // Actualizar stock específico de la sucursal en Dexie
+    await db.branch_stock.where({ product_id: productId, branch_id: activeBranch.id }).delete();
+    await db.branch_stock.add({ 
+      product_id: productId, 
+      branch_id: activeBranch.id, 
+      stock: Number(productForm.stock) 
+    });
+
+    // Sync
+    syncToCloud('products', { id: productId, ...productData });
+    syncToCloud('branch_stock', { product_id: productId, branch_id: activeBranch.id, stock: Number(productForm.stock) });
+
     closeAllModals();
     loadData();
   };
@@ -161,7 +193,8 @@ export const Inventory = () => {
   };
 
   const handleSeedData = async () => {
-    if (!confirm('¿Deseas cargar los datos de ejemplo del mercado paraguayo? Se añadirán nuevos productos, categorías y proveedores.')) return;
+    if (!activeBranch) return alert('Selecciona una sucursal primero');
+    if (!confirm('¿Deseas cargar los datos de ejemplo del mercado paraguayo para esta sucursal?')) return;
 
     try {
       // 1. Sembrar Categorías
@@ -193,7 +226,7 @@ export const Inventory = () => {
         await syncToCloud('suppliers', { id, ...sup });
       }
 
-      // 3. Sembrar Productos
+      // 3. Sembrar Productos y Stock por Sucursal
       const productsToSeed = [
         { name: 'Arroz Itapúa (1kg)', price: 6500, cost: 5000, stock: 24, min_stock: 5, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001001' },
         { name: 'Fideo Federal (500g)', price: 4800, cost: 3500, stock: 30, min_stock: 10, category_id: catIds[0].id, unit: 'Unidad', barcode: '7840001002' },
@@ -205,12 +238,22 @@ export const Inventory = () => {
       ];
 
       for (const prod of productsToSeed) {
-        const id = await db.products.add(prod);
-        await syncToCloud('products', { id, ...prod });
+        const { stock, ...productData } = prod;
+        const id = await db.products.add(productData);
+        
+        // Agregar stock a la sucursal activa
+        await db.branch_stock.add({
+          product_id: id,
+          branch_id: activeBranch.id,
+          stock: stock
+        });
+
+        await syncToCloud('products', { id, ...productData });
+        await syncToCloud('branch_stock', { product_id: id, branch_id: activeBranch.id, stock });
       }
 
       await loadData();
-      alert('✅ ¡Mercado cargado con éxito! Productos, Categorías y Proveedores listos.');
+      alert('✅ ¡Mercado cargado con éxito en esta sucursal!');
     } catch (err) {
       console.error('Error al sembrar datos:', err);
       alert('❌ Error al cargar datos. Intenta de nuevo.');

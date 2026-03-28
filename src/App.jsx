@@ -8,13 +8,15 @@ import { Reports } from './pages/Reports';
 import { Cashier } from './pages/Cashier';
 import { BrandingProvider } from './context/BrandingContext';
 import { AuthProvider } from './context/AuthContext';
+import { BranchProvider } from './context/BranchContext';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <BrandingProvider>
-          <div className="app-container">
+        <BranchProvider>
+          <BrandingProvider>
+            <div className="app-container">
             <Navbar />
             <main className="main-content">
               <Routes>
@@ -28,7 +30,8 @@ function App() {
             </main>
           </div>
         </BrandingProvider>
-      </AuthProvider>
+      </BranchProvider>
+    </AuthProvider>
 
       <style>{`
         .app-container {
