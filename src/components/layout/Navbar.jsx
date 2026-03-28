@@ -110,24 +110,37 @@ export const Navbar = () => {
           bottom: 0;
           left: 0;
           width: 100%;
-          height: 70px;
+          height: 55px;
           display: flex;
           justify-content: space-around;
           align-items: center;
-          padding: 0 10px;
+          padding: 0 5px;
           z-index: 1000;
-          box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-          background: var(--primary) !important; /* Green Bar */
+          background: rgba(34, 197, 94, 0.95) !important;
+          backdrop-filter: blur(10px);
+          border-top: 1px solid rgba(255,255,255,0.2);
         }
 
         .nav-link {
-          color: #000000 !important; /* Black text */
+          color: #000000 !important;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-decoration: none;
+          gap: 2px;
+          transition: 0.2s;
+        }
+
+        .nav-link span {
+          font-size: 10px;
+          font-weight: 700;
         }
 
         .nav-link.active {
-          color: #000000 !important;
-          background: rgba(0, 0, 0, 0.1) !important;
-          font-weight: 800;
+          color: #ffffff !important;
+          background: rgba(0, 0, 0, 0.15);
+          border-radius: 12px;
+          padding: 4px 10px;
         }
 
         .nav-logo {
@@ -144,87 +157,58 @@ export const Navbar = () => {
             justify-content: flex-start;
             padding: 20px 0;
             border-right: 1px solid var(--border);
-          }
-
-          @media (max-height: 500px) {
-            .nav-container { width: 170px; padding: 10px 0; }
-            .logo-img, .logo-placeholder { width: 35px !important; height: 35px !important; }
-            .logo-text span { font-size: 13px !important; }
-            .nav-links { gap: 2px; padding: 5px; }
-            .nav-link { padding: 6px 10px; font-size: 13px; gap: 8px; }
-            .branch-active { padding: 8px !important; }
-          }
-
-          .nav-links {
-            flex-direction: column;
-            width: 100%;
-            gap: 10px;
-            padding: 20px;
+            background: var(--primary) !important;
+            border-top: none;
           }
 
           .nav-link {
             flex-direction: row;
-            font-size: 16px;
+            font-size: 15px;
             gap: 12px;
             width: 100%;
-            padding: 12px 16px;
+            padding: 10px 16px;
+            border-radius: 0;
           }
+          
+          .nav-link span { font-size: 15px; }
 
           .nav-logo {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 15px;
+            gap: 10px;
+            margin-bottom: 20px;
             text-align: center;
-            width: 100%;
-            padding: 0 15px;
-          }
-
-          .logo-text {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
             width: 100%;
           }
 
           .logo-text span {
             font-weight: 900;
-            font-size: 16px;
+            font-size: 15px;
             color: #000000;
           }
 
           .role-tag {
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.08);
             color: #000000;
-            padding: 3px 10px;
+            padding: 2px 8px;
+            font-size: 10px;
+            border-radius: 6px;
           }
 
           .logo-img {
-            width: 60px;
-            height: 60px;
-            object-fit: contain;
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
-            border: 2px solid var(--border);
-          }
-          
-          .logo-placeholder {
-            width: 60px;
-            height: 60px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 2px solid rgba(0,0,0,0.1);
           }
         }
 
         /* BRANCH SELECTOR STYLES */
         .branch-selector-wrapper {
           position: relative;
-          padding: 0 15px;
-          margin: 10px 0;
+          padding: 0 12px;
+          margin-bottom: 10px;
           width: 100%;
         }
 
@@ -232,25 +216,20 @@ export const Navbar = () => {
           width: 100%;
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 12px;
-          border-radius: 12px;
+          gap: 6px;
+          padding: 10px;
+          border-radius: 10px;
           border: 1px solid rgba(0,0,0,0.1);
-          background: rgba(0,0,0,0.05);
+          background: rgba(255,255,255,0.1);
           color: #000000;
           font-weight: 800;
           cursor: pointer;
         }
 
-        .branch-active:hover {
-          background: rgba(255,255,255,0.1);
-          border-color: var(--primary);
-        }
-
         .branch-name-text {
           flex: 1;
           font-weight: 700;
-          font-size: 13px;
+          font-size: 12px;
           text-align: left;
           white-space: nowrap;
           overflow: hidden;
@@ -262,24 +241,23 @@ export const Navbar = () => {
         .branch-dropdown {
           position: absolute;
           top: 100%;
-          left: 15px;
-          right: 15px;
-          margin-top: 8px;
-          padding: 8px;
-          border-radius: 15px;
+          left: 12px;
+          right: 12px;
+          margin-top: 5px;
+          padding: 5px;
+          border-radius: 12px;
           border: 1px solid var(--border);
-          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
           z-index: 1001;
           background: var(--bg-card);
         }
 
         .dropdown-header {
-          padding: 8px 12px;
-          font-size: 10px;
+          padding: 6px 10px;
+          font-size: 9px;
           font-weight: 800;
           color: var(--text-muted);
           text-transform: uppercase;
-          letter-spacing: 1px;
         }
 
         .branch-option {
@@ -287,95 +265,52 @@ export const Navbar = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px 12px;
-          border-radius: 10px;
+          padding: 8px 10px;
+          border-radius: 8px;
           border: none;
           background: none;
-          color: var(--text-main);
           cursor: pointer;
-          transition: 0.2s;
         }
 
-        .branch-option:hover {
-          background: rgba(34, 197, 94, 0.1);
-        }
-
-        .branch-option.active {
-          background: rgba(34, 197, 94, 0.15);
-          color: var(--primary);
-        }
-
-        .option-info {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          text-align: left;
-        }
-
-        .option-info strong { font-size: 13px; }
-        .option-info small { font-size: 11px; opacity: 0.7; }
+        .branch-option strong { font-size: 12px; }
+        .branch-option small { font-size: 10px; opacity: 0.6; }
 
         .active-dot {
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
           background: var(--primary);
-          box-shadow: 0 0 10px var(--primary);
-        }
-
-        .add-branch-btn {
-          width: 100%;
-          margin-top: 8px;
-          padding: 10px;
-          border-radius: 10px;
-          border: 1px dashed var(--border);
-          background: none;
-          color: var(--primary);
-          font-weight: bold;
-          font-size: 12px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
         }
 
         @media (max-width: 767px) {
           .nav-container {
-            height: 65px;
-            padding: 0 5px;
-            gap: 5px;
+            height: 55px;
+            padding: 0 2px;
           }
           .nav-links {
             flex: 1;
-            justify-content: center;
-            gap: 15px;
+            justify-content: space-evenly;
+            display: flex;
+            align-items: center;
           }
           .nav-link {
-            padding: 5px;
-            min-width: 50px;
-          }
-          .branch-selector-wrapper { 
-            margin: 0; 
+            min-width: 45px;
             padding: 0;
+          }
+          .nav-link svg { width: 18px; height: 18px; }
+          .branch-selector-wrapper { 
             width: auto;
-            order: -1;
+            margin: 0;
+            padding: 0;
           }
           .branch-active { 
-            border: none; 
             background: none; 
-            padding: 10px;
+            border: none; 
+            padding: 8px;
           }
           .branch-name-text { display: none; }
-          .branch-dropdown { 
-            position: fixed; 
-            bottom: auto; 
-            top: 10px; 
-            left: 10px; 
-            right: 10px;
-            max-height: 80vh;
-            overflow-y: auto;
-          }
+          .nav-user { padding-right: 5px; }
+          .nav-user svg { width: 18px; height: 18px; }
         }
       `}</style>
     </nav>
