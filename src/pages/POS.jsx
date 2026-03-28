@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ArrowLeft, ShoppingCart, CheckCircle, Printer, X } from 'lucide-react';
+import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ArrowLeft, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag } from 'lucide-react';
 import { useBranches } from '../context/BranchContext';
 import { supabase } from '../utils/supabase';
 
@@ -9,10 +9,14 @@ export const POS = () => {
   const [cart, setCart] = useState([]);
   const [total, setTotal] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [weightInput, setWeightInput] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState([]);
   const [orderComplete, setOrderComplete] = useState(false);
+  const [showCartMobile, setShowCartMobile] = useState(false);
 
   useEffect(() => { loadProducts(); }, [activeBranch]);
 
@@ -54,6 +58,16 @@ export const POS = () => {
       alert("⚠️ No hay stock disponible en esta sucursal");
       return;
     }
+
+    // Si es por kilo, abrir modal de peso
+    if (product.unit?.toLowerCase().includes('kg')) {
+      setSelectedProduct(product);
+      setWeightInput('0');
+      setShowWeightModal(true);
+      return;
+    }
+
+    // Si es unidad, sumar normal
     const existing = cart.find(item => item.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock) {
@@ -68,12 +82,29 @@ export const POS = () => {
     }
   };
 
+  const addWeightToCart = () => {
+    const weight = parseFloat(weightInput);
+    if (!weight || weight <= 0) return;
+
+    const existingIndex = cart.findIndex(item => item.id === selectedProduct.id);
+    if (existingIndex > -1) {
+      const newCart = [...cart];
+      newCart[existingIndex].quantity += weight;
+      setCart(newCart);
+    } else {
+      setCart([...cart, { ...selectedProduct, quantity: weight }]);
+    }
+    
+    setShowWeightModal(false);
+    setSelectedProduct(null);
+  };
+
   const updateQuantity = (id, delta) => {
     setCart(cart ? cart.map(item => {
       if (item.id === id) {
         const product = products.find(p => p.id === id);
         const newQty = item.quantity + delta;
-        if (newQty > product.stock) {
+        if (newQty > (product?.stock || 9999)) {
            alert("⚠️ Stock insuficiente");
            return item;
         }
@@ -100,27 +131,23 @@ export const POS = () => {
         branch_id: activeBranch.id
       };
 
-      // 1. Guardar Venta
       await db.sales.add(saleData);
       
-      // 2. Actualizar Stock Local en la Sucursal Específica
       for (const item of cart) {
         const stockEntry = await db.branch_stock.where({ product_id: item.id, branch_id: activeBranch.id }).first();
         if (stockEntry) {
            await db.branch_stock.update(stockEntry.id, {
              stock: stockEntry.stock - item.quantity
            });
-           // Cloud Sync Stock
            syncWithCloud('branch_stock', { ...stockEntry, stock: stockEntry.stock - item.quantity });
         }
       }
 
-      // 3. Sync Sale
       syncWithCloud(saleData);
-
       setOrderComplete(true);
       setCart([]);
       setShowPaymentModal(false);
+      setShowCartMobile(false);
       loadProducts();
     } catch (err) {
       console.error("Error completando la venta:", err);
@@ -140,6 +167,10 @@ export const POS = () => {
         <body>
           <h2 class="center">GUARANI POS</h2>
           <p class="center">${new Date().toLocaleString()}</p>
+          <div class="hr"></div>
+          ${cart.map(item => `
+            <div class="row"><span>${item.name} x${item.quantity}</span> <span>${(item.price * item.quantity).toLocaleString()}</span></div>
+          `).join('')}
           <div class="hr"></div>
           <div class="row"><b>Total:</b> <b>Gs. ${total.toLocaleString('es-PY')}</b></div>
           <p class="center">¡Muchas Gracias!</p>
@@ -165,10 +196,11 @@ export const POS = () => {
           <button onClick={() => setOrderComplete(false)} className="new-order-btn">Siguiente Venta</button>
         </div>
         <style>{`
-          .order-complete { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 30px; border: 1px solid var(--border); padding: 5rem; text-align: center; }
-          .complete-actions { display: flex; gap: 20px; margin-top: 3rem; }
-          .print-btn { background: var(--bg-card); border: 1px solid var(--border); padding: 15px 30px; border-radius: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-          .new-order-btn { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 15px rgba(94,92,230,0.3); }
+          .order-complete { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; border-radius: 30px; border: 1px solid var(--border); padding: 2rem; text-align: center; }
+          .complete-actions { display: flex; flex-direction: column; gap: 15px; margin-top: 2rem; width: 100%; max-width: 300px; }
+          .print-btn { background: var(--bg-card); border: 1px solid var(--border); padding: 15px; border-radius: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+          .new-order-btn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 15px rgba(94,92,230,0.3); }
+          @media (min-width: 768px) { .complete-actions { flex-direction: row; max-width: 500px; } .order-complete { padding: 5rem; } }
         `}</style>
       </div>
     );
@@ -182,147 +214,244 @@ export const POS = () => {
             <Search size={22} color="var(--text-muted)" />
             <input 
               type="text" 
-              placeholder="Buscar por nombre o código de barras..." 
+              placeholder="Buscar producto..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              autoFocus
             />
+            {searchTerm && <X size={20} className="clear-search" onClick={() => setSearchTerm('')} />}
           </div>
 
           <div className="products-grid">
             {filteredProducts.map(product => (
               <button key={product.id} onClick={() => addToCart(product)} className="product-item glass">
+                <div className="p-badge">{product.unit}</div>
                 <div className="p-info">
                   <span className="p-name">{product.name}</span>
-                  <span className="p-stock">{product.stock} {product.unit}s disp.</span>
+                  <span className="p-stock">{product.stock} {product.unit} disp.</span>
                 </div>
-                <span className="p-price">Gs. {product.price.toLocaleString('es-PY')}</span>
+                <span className="p-price">Gs. {product.price.toLocaleString()}</span>
               </button>
             ))}
           </div>
         </section>
 
-        <aside className="checkout-aside glass">
+        <aside className={`checkout-aside glass ${showCartMobile ? 'mobile-visible' : ''}`}>
           <div className="cart-header">
-            <h3><ShoppingCart size={20} /> Carrito de Venta</h3>
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={20} /> 
+              <h3>Carrito ({cart.length})</h3>
+            </div>
             <button onClick={() => setCart([])} className="clear-btn">Limpiar</button>
+            <button className="mobile-only close-cart" onClick={() => setShowCartMobile(false)}><X /></button>
           </div>
 
           <div className="cart-items">
             {cart.length === 0 ? (
               <div className="empty-cart">
-                <ShoppingCart size={64} opacity={0.1} />
-                <p>No hay productos seleccionados</p>
+                <ShoppingBag size={48} opacity={0.1} />
+                <p>Carrito vacío</p>
               </div>
             ) : cart.map(item => (
               <div key={item.id} className="cart-item">
                 <div className="item-details">
                   <span className="item-name">{item.name}</span>
-                  <span className="item-price">Gs. {item.price.toLocaleString()}</span>
+                  <span className="item-price">
+                    {item.quantity} {item.unit} x {item.price.toLocaleString()}
+                  </span>
                 </div>
                 <div className="qty-controls">
-                  <button onClick={() => updateQuantity(item.id, -1)}><Minus size={16} /></button>
-                  <span>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.id, 1)}><Plus size={16} /></button>
+                  <button onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? -0.1 : -1)}><Minus size={14} /></button>
+                  <span className="qty-val">{item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(3)}</span>
+                  <button onClick={() => updateQuantity(item.id, item.unit?.includes('kg') ? 0.1 : 1)}><Plus size={14} /></button>
                 </div>
+                <button className="remove-item" onClick={() => updateQuantity(item.id, -item.quantity)}>
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
           </div>
 
           <div className="checkout-footer">
             <div className="total-row">
-              <span style={{fontWeight: 700}}>Total a Cobrar</span>
-              <span className="total-amount">Gs. {total.toLocaleString('es-PY')}</span>
+              <span>Total</span>
+              <span className="total-amount">Gs. {total.toLocaleString()}</span>
             </div>
             <button 
               className="pay-button" 
               disabled={cart.length === 0}
               onClick={() => setShowPaymentModal(true)}
             >
-              Confirmar Gs. {total.toLocaleString('es-PY')}
+              Cobrar Ahora
             </button>
           </div>
         </aside>
+
+        {/* MOBILE REVEAL BUTTON */}
+        <div className="mobile-cart-bar mobile-only glass" onClick={() => setShowCartMobile(true)}>
+          <div className="flex items-center gap-3">
+            <div className="cart-count-badge">{cart.length}</div>
+            <span className="font-bold">Ver Pedido</span>
+          </div>
+          <span className="text-xl font-black">Gs. {total.toLocaleString()}</span>
+        </div>
       </div>
 
+      {/* WEIGHT MODAL */}
+      {showWeightModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass weight-modal">
+             <div className="modal-header">
+               <Scale size={24} color="var(--primary)" />
+               <h2>Pesar {selectedProduct?.name}</h2>
+               <button onClick={() => setShowWeightModal(false)} className="close-x"><X /></button>
+             </div>
+             
+             <div className="weight-display">
+               <input 
+                 type="number" 
+                 value={weightInput}
+                 onChange={(e) => setWeightInput(e.target.value)}
+                 step="0.001"
+                 autoFocus
+               />
+               <span className="unit-label">kg</span>
+             </div>
+
+             <div className="quick-weight-grid">
+                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.1).toFixed(3))}>+100g</button>
+                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.25).toFixed(3))}>+250g</button>
+                <button onClick={() => setWeightInput((parseFloat(weightInput) + 0.5).toFixed(3))}>+500g</button>
+                <button onClick={() => setWeightInput((parseFloat(weightInput) + 1).toFixed(3))}>+1kg</button>
+                <button onClick={() => setWeightInput('0.250')}>1/4 kg</button>
+                <button onClick={() => setWeightInput('0.500')}>1/2 kg</button>
+                <button onClick={() => setWeightInput('0.750')}>3/4 kg</button>
+                <button onClick={() => setWeightInput('0')} className="clear-w">Cero</button>
+             </div>
+
+             <div className="modal-actions-footer full-width">
+                <button onClick={() => setShowWeightModal(false)} className="btn-cancel">Cancelar</button>
+                <button onClick={addWeightToCart} className="btn-save pay">Agregar Gs. {(selectedProduct?.price * parseFloat(weightInput || 0)).toLocaleString()}</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT MODAL */}
       {showPaymentModal && (
         <div className="modal-overlay">
           <div className="modal-content glass payment-modal">
             <div className="modal-header">
-              <h2>Método de Pago</h2>
-              <button onClick={() => setShowPaymentModal(false)} className="close-x"><X size={20} /></button>
+              <h2>Finalizar Venta</h2>
+              <button onClick={() => setShowPaymentModal(false)} className="close-x"><X /></button>
             </div>
             
+            <div className="payment-summary">
+               <div className="sum-row"><span>Total a pagar:</span> <strong>Gs. {total.toLocaleString()}</strong></div>
+            </div>
+
+            <div className="payment-detail-list">
+              <span className="detail-title">Detalle de la venta:</span>
+              <div className="detail-items-scroll">
+                {cart.map(item => (
+                  <div key={item.id} className="detail-item-row">
+                    <span>{item.name} x{item.quantity} {item.unit === 'Kg' ? 'kg' : ''}</span>
+                    <span>Gs. {(item.price * item.quantity).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="payment-options">
-               <button 
-                 className={`pay-option ${paymentMethod === 'Efectivo' ? 'active' : ''}`}
-                 onClick={() => setPaymentMethod('Efectivo')}
-               >
+               <button className={`pay-option ${paymentMethod === 'Efectivo' ? 'active' : ''}`} onClick={() => setPaymentMethod('Efectivo')}>
                  <DollarSign size={24} /> Efectivo
                </button>
-               <button 
-                 className={`pay-option ${paymentMethod === 'Transferencia' ? 'active' : ''}`}
-                 onClick={() => setPaymentMethod('Transferencia')}
-               >
+               <button className={`pay-option ${paymentMethod === 'Transferencia' ? 'active' : ''}`} onClick={() => setPaymentMethod('Transferencia')}>
                  <CreditCard size={24} /> Transferencia
                </button>
             </div>
 
             <div className="modal-actions-footer full-width">
-               <button onClick={() => setShowPaymentModal(false)} className="btn-cancel">Cancelar</button>
-               <button onClick={handleCompleteSale} className="btn-save pay">Completar Operación</button>
+               <button onClick={() => setShowPaymentModal(false)} className="btn-cancel">Atrás</button>
+               <button onClick={handleCompleteSale} className="btn-save pay">Confirmar Venta</button>
             </div>
           </div>
         </div>
       )}
 
       <style>{`
-        .pos-container { height: calc(100vh - 120px); }
-        .pos-layout { display: grid; grid-template-columns: 1fr 420px; gap: 1.5rem; height: 100%; }
+        .pos-container { height: calc(100vh - 90px); padding: 10px; }
+        .pos-layout { display: grid; grid-template-columns: 1fr 380px; gap: 15px; height: 100%; position: relative; }
         
-        .products-section { display: flex; flex-direction: column; gap: 1.5rem; overflow: hidden; }
-        .search-bar { display: flex; align-items: center; padding: 20px 30px; border-radius: 25px; gap: 15px; border: 1px solid var(--border); }
-        .search-bar input { background: none; border: none; font-size: 1.2rem; color: var(--text-main); flex: 1; outline: none; }
+        .products-section { display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
+        .search-bar { display: flex; align-items: center; padding: 12px 20px; border-radius: 20px; gap: 12px; border: 1px solid var(--border); }
+        .search-bar input { background: none; border: none; font-size: 1.1rem; color: var(--text-main); flex: 1; outline: none; }
+        .clear-search { cursor: pointer; opacity: 0.5; }
         
-        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.2rem; overflow-y: auto; padding-bottom: 20px; }
-        .product-item { padding: 1.5rem; border-radius: 22px; text-align: left; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: 0.2s; border: 1px solid var(--border); cursor: pointer; }
-        .product-item:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        .p-name { font-weight: 800; display: block; font-size: 1.1rem; }
-        .p-stock { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
-        .p-price { font-weight: 900; color: var(--primary); font-size: 1.3rem; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; overflow-y: auto; padding-bottom: 20px; }
+        .product-item { padding: 12px; border-radius: 18px; text-align: left; display: flex; flex-direction: column; gap: 8px; transition: 0.2s; border: 1px solid var(--border); position: relative; cursor: pointer; }
+        .p-badge { position: absolute; top: 8px; right: 8px; font-size: 9px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 8px; text-transform: uppercase; font-weight: 800; }
+        .p-name { font-weight: 700; font-size: 0.95rem; line-height: 1.2; height: 2.4em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .p-stock { font-size: 0.75rem; color: var(--text-muted); }
+        .p-price { font-weight: 900; color: var(--primary); font-size: 1.1rem; margin-top: auto; }
 
-        .checkout-aside { display: flex; flex-direction: column; border-radius: 30px; border: 1px solid var(--border); overflow: hidden; background: rgba(0,0,0,0.02); }
-        .cart-header { padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .clear-btn { font-size: 0.85rem; color: var(--danger); font-weight: 800; text-transform: uppercase; cursor: pointer; }
+        .checkout-aside { display: flex; flex-direction: column; border-radius: 25px; border: 1px solid var(--border); overflow: hidden; background: var(--bg-card); transition: 0.3s; }
+        .cart-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .cart-header h3 { font-size: 1.1rem; margin: 0; }
         
-        .cart-items { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 12px; }
-        .cart-item { padding: 15px; border-radius: 18px; background: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .item-details { display: flex; flex-direction: column; }
-        .item-name { font-weight: 700; color: var(--text-main); }
-        .item-price { font-size: 0.9rem; color: var(--text-muted); }
+        .cart-items { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 8px; }
+        .cart-item { padding: 10px; border-radius: 14px; background: rgba(255,255,255,0.05); display: flex; gap: 10px; align-items: center; border: 1px solid var(--border); }
+        .item-details { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .item-name { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-price { font-size: 0.8rem; color: var(--text-muted); }
         
-        .qty-controls { display: flex; align-items: center; gap: 15px; background: var(--bg-main); padding: 5px; border-radius: 12px; }
-        .qty-controls button { width: 30px; height: 30px; border-radius: 10px; background: white; border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        .qty-controls button:hover { border-color: var(--primary); color: var(--primary); }
-        .qty-controls span { font-weight: 800; min-width: 20px; text-align: center; }
-        
-        .checkout-footer { padding: 2rem; background: white; border-top: 2px solid var(--border); }
-        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-        .total-amount { font-size: 2.2rem; font-weight: 900; color: var(--primary); }
-        .pay-button { width: 100%; padding: 22px; border-radius: 22px; background: var(--primary); color: white; font-weight: 900; font-size: 1.25rem; box-shadow: 0 10px 30px rgba(94,92,230,0.4); border: none; cursor: pointer; transition: 0.3s; }
-        .pay-button:hover { transform: translateY(-3px); filter: brightness(1.1); }
-        .pay-button:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
-        
-        .empty-cart { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); gap: 20px; }
+        .qty-controls { display: flex; align-items: center; gap: 8px; background: var(--bg-main); padding: 3px; border-radius: 10px; }
+        .qty-controls button { width: 24px; height: 24px; border-radius: 7px; border: none; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .qty-val { font-weight: 800; font-size: 0.85rem; min-width: 40px; text-align: center; }
+        .remove-item { color: var(--danger); padding: 5px; cursor: pointer; background: none; border: none; opacity: 0.5; }
 
-        .payment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 2rem 0; }
-        .pay-option { padding: 30px; border-radius: 25px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 12px; font-weight: 800; transition: 0.3s; cursor: pointer; background: white; }
-        .pay-option.active { border-color: var(--primary); background: rgba(94,92,230,0.1); color: var(--primary); box-shadow: 0 10px 20px rgba(94,92,230,0.1); }
-        .pay-option:hover:not(.active) { border-color: var(--primary); }
-        .btn-save.pay { background: var(--secondary) !important; box-shadow: 0 8px 25px rgba(52,199,89,0.3) !important; font-size: 1.1rem; }
+        .checkout-footer { padding: 1.5rem; border-top: 2px solid var(--border); }
+        .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .total-amount { font-size: 1.8rem; font-weight: 900; color: var(--primary); }
+        .pay-button { width: 100%; padding: 18px; border-radius: 18px; background: var(--primary); color: white; font-weight: 900; font-size: 1.1rem; border: none; cursor: pointer; box-shadow: 0 8px 20px rgba(34, 197, 94, 0.3); }
 
-        @media (max-width: 1100px) {
+        .mobile-cart-bar { position: fixed; bottom: 85px; left: 15px; right: 15px; padding: 15px 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 900; box-shadow: 0 10px 30px rgba(34, 197, 94, 0.2); border: 2px solid var(--primary); cursor: pointer; }
+        .cart-count-badge { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+
+        /* WEIGHT MODAL STYLES */
+        .weight-modal { max-width: 450px !important; }
+        .weight-display { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 1.5rem 0; background: var(--bg-main); padding: 20px; border-radius: 20px; border: 2px solid var(--primary); }
+        .weight-display input { background: none; border: none; font-size: 3rem; font-weight: 900; color: var(--text-main); width: 180px; text-align: center; outline: none; }
+        .unit-label { font-size: 1.5rem; font-weight: 800; color: var(--text-muted); border-left: 2px solid var(--border); padding-left: 15px; }
+        
+        .quick-weight-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+        .quick-weight-grid button { padding: 12px 5px; border-radius: 12px; border: 1px solid var(--border); background: white; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+        .quick-weight-grid button:hover { border-color: var(--primary); color: var(--primary); }
+        .clear-w { grid-column: span 4; background: #fff5f5 !important; color: #ff4d4d !important; border-color: #ffd8d8 !important; }
+
+        .payment-summary { padding: 20px; background: rgba(34, 197, 94, 0.1); border-radius: 20px; margin-bottom: 1rem; border: 1px dashed var(--primary); }
+        .sum-row { display: flex; justify-content: space-between; align-items: center; }
+        .sum-row strong { font-size: 1.8rem; color: var(--primary); }
+        
+        .payment-detail-list { margin-bottom: 1.5rem; }
+        .detail-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 800; margin-bottom: 8px; display: block; }
+        .detail-items-scroll { max-height: 120px; overflow-y: auto; background: var(--bg-main); border-radius: 15px; padding: 10px; border: 1px solid var(--border); }
+        .detail-item-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .detail-item-row:last-child { border: none; }
+        
+        .payment-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+        .pay-option { padding: 15px; border-radius: 18px; border: 2px solid var(--border); background: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 700; transition: 0.2s; }
+        .pay-option.active { border-color: var(--primary); color: var(--primary); background: rgba(34, 197, 94, 0.05); }
+
+        @media (max-width: 767px) {
           .pos-layout { grid-template-columns: 1fr; }
+          .checkout-aside { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1100; transform: translateY(100%); border-radius: 0; }
+          .checkout-aside.mobile-visible { transform: translateY(0); }
+          .products-grid { padding-bottom: 100px; grid-template-columns: repeat(2, 1fr) !important; }
+          .pos-container { height: calc(100vh - 150px); }
+        }
+
+        @media (min-width: 768px) {
+          .mobile-only { display: none !important; }
         }
       `}</style>
     </div>

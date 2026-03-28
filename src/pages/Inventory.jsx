@@ -466,12 +466,12 @@ export const Inventory = () => {
         .inventory-page { max-width: 1200px; margin: 0 auto; }
         .header-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
         .header-actions { display: flex; gap: 12px; }
-        .seed-data-btn { background: linear-gradient(135.22deg, #8E2DE2 0%, #4A00E0 100%); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(142, 45, 226, 0.3); transition: 0.3s; }
-        .seed-data-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(142, 45, 226, 0.4); }
+        .seed-data-btn { background: linear-gradient(135.22deg, #22c55e 0%, #16a34a 100%); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); transition: 0.3s; }
+        .seed-data-btn:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4); }
         .sync-cloud-btn { background: #3ecf8e; color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(62, 207, 142, 0.3); transition: 0.3s; }
         .sync-cloud-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
         
-        .add-btn { background: var(--primary); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(94, 92, 230, 0.3); }
+        .add-btn { background: var(--primary); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
         .secondary-btn { background: var(--bg-card); color: var(--text-main); padding: 10px 20px; border-radius: 12px; border: 1px solid var(--border); font-weight: 600; }
 
         .inventory-tabs { display: flex; gap: 5px; padding: 5px; border-radius: 15px; margin-bottom: 1.5rem; width: fit-content; background: rgba(0,0,0,0.1); }
@@ -496,7 +496,7 @@ export const Inventory = () => {
         .card-price .price { font-size: 1.3rem; font-weight: bold; color: var(--primary); }
 
         .btn-icon { padding: 8px; border-radius: 10px; background: var(--bg-main); color: var(--text-muted); border: none; cursor: pointer; }
-        .btn-icon:hover { background: rgba(94, 92, 230, 0.1); color: var(--primary); }
+        .btn-icon:hover { background: rgba(34, 197, 94, 0.1); color: var(--primary); }
         .btn-icon.delete:hover { background: rgba(255, 69, 58, 0.1); color: var(--danger); }
 
         /* LIST VIEW FOR CATS/SUPS */
@@ -527,7 +527,7 @@ export const Inventory = () => {
         .modal-actions-footer { display: flex; justify-content: flex-end; gap: 15px; margin-top: 2rem; }
         .btn-cancel { background: none; border: none; color: var(--danger); font-weight: bold; cursor: pointer; padding: 12px 20px; border-radius: 10px; }
         .btn-cancel:hover { background: rgba(255, 69, 58, 0.1); }
-        .btn-save { background: var(--primary); color: white; border: none; font-weight: 800; padding: 14px 35px; border-radius: 14px; box-shadow: 0 4px 15px rgba(94, 92, 230, 0.4); cursor: pointer; }
+        .btn-save { background: var(--primary); color: white; border: none; font-weight: 800; padding: 14px 35px; border-radius: 14px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); cursor: pointer; }
       `}</style>
     </div>
   );

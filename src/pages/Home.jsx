@@ -30,11 +30,11 @@ export const Home = () => {
     setStats({ todaySales: totalToday, totalStock: branchStock.length, lowStockCount: lowStock, transactions: todaySales.length });
   };
 
-  const quickActions = [
-    { label: 'Nueva Venta', icon: <ShoppingCart size={24} />, path: '/pos', color: '#6366f1' },
-    { label: 'Agregar Producto', icon: <PlusCircle size={24} />, path: '/inventory', color: '#10b981' },
-    { label: 'Cerrar Caja', icon: <DollarSign size={24} />, path: '/cashier', color: '#f59e0b' },
-    { label: 'Ver Reportes', icon: <BarChart2 size={24} />, path: '/reports', color: '#ef4444' },
+   const quickActions = [
+    { label: 'Nueva Venta', icon: <ShoppingCart size={24} />, path: '/pos', color: 'var(--primary)' },
+    { label: 'Agregar Producto', icon: <PlusCircle size={24} />, path: '/inventory', color: '#16a34a' },
+    { label: 'Cerrar Caja', icon: <DollarSign size={24} />, path: '/cashier', color: '#15803d' },
+    { label: 'Ver Reportes', icon: <BarChart2 size={24} />, path: '/reports', color: '#166534' },
   ];
 
   return (
@@ -71,66 +71,90 @@ export const Home = () => {
       </section>
 
       <style>{`
-        .home-header { margin-bottom: 2rem; }
-        .home-header h1 { font-size: 2.5rem; }
-        .home-header p { color: var(--text-muted); font-size: 1.1rem; }
+        .home-header { margin-bottom: 1.5rem; }
+        .home-header h1 { font-size: 1.8rem; margin: 0; }
+        .home-header p { color: var(--text-muted); font-size: 1rem; margin-top: 5px; }
 
         .dashboard-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 1.5rem;
-          margin-bottom: 2.5rem;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 1rem;
+          margin-bottom: 2rem;
         }
 
         .stats-card {
-          padding: 1.5rem;
+          padding: 1.2rem;
           border-radius: var(--radius);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
 
         .stat-value {
-          font-size: 1.8rem;
-          font-weight: bold;
-          margin: 10px 0;
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 5px 0;
           color: var(--primary);
         }
 
-        .stat-label { font-size: 0.9rem; color: var(--text-muted); }
+        .stat-label { font-size: 0.85rem; color: var(--text-muted); }
 
-        .quick-actions h3 { margin-bottom: 1rem; }
+        .quick-actions h3 { margin-bottom: 1rem; font-size: 1.2rem; }
         .actions-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 0.8rem;
         }
 
         .action-card {
-          padding: 1rem;
-          border-radius: var(--radius);
+          padding: 0.8rem;
+          border-radius: 16px;
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 0.8rem;
           text-decoration: none;
           color: var(--text-main);
-          font-weight: 600;
-          transition: transform 0.2s, background 0.2s;
+          font-size: 0.9rem;
+          font-weight: 700;
+          transition: 0.2s;
+          border: 1px solid var(--border);
         }
 
         .action-card:hover { 
-          transform: translateY(-4px); 
-          background: rgba(255,255,255,0.9);
+          transform: translateY(-3px); 
+          background: rgba(255,255,255,0.1);
+          border-color: var(--primary);
         }
 
         .action-icon {
-          width: 48px;
-          height: 48px;
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
+          box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2);
         }
 
-        .arrow { margin-left: auto; opacity: 0.5; }
+        .action-card span {
+          line-height: 1.2;
+          flex: 1;
+        }
+
+        .arrow { opacity: 0.4; }
+
+        @media (max-width: 480px) {
+          .actions-grid { grid-template-columns: 1fr 1fr; }
+          .home-header h1 { font-size: 1.5rem; }
+        }
+        
+        @media (max-height: 500px) and (min-width: 600px) {
+          .dashboard-grid { margin-bottom: 1rem; }
+          .actions-grid { grid-template-columns: repeat(4, 1fr); }
+          .home-header { margin-bottom: 1rem; }
+        }
       `}</style>
     </div>
   );

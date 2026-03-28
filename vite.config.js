@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Guaraní POS',
         short_name: 'GuaraníPOS',
         description: 'Control de Stock y Facturación para Paraguay',
-        theme_color: '#6366f1',
+        theme_color: '#22c55e',
         icons: [
           {
             src: 'pwa-192x192.png',

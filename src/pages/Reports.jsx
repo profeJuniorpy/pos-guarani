@@ -161,8 +161,8 @@ export const Reports = () => {
           width: 60px; height: 60px; border-radius: 18px; display: flex; align-items: center; justify-content: center; 
           background: var(--bg-main); color: var(--primary); 
         }
-        .accent-primary .stat-icon { background: rgba(94, 92, 230, 0.1); color: var(--primary); }
-        .accent-secondary .stat-icon { background: rgba(52, 199, 89, 0.1); color: var(--secondary); }
+        .accent-primary .stat-icon { background: rgba(34, 197, 94, 0.1); color: var(--primary); }
+        .accent-secondary .stat-icon { background: rgba(34, 197, 94, 0.1); color: var(--secondary); }
         .accent-warning .stat-icon { background: rgba(255, 159, 10, 0.1); color: var(--accent); }
 
         .stat-info span { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }

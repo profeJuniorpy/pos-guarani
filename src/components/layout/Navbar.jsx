@@ -53,7 +53,7 @@ export const Navbar = () => {
         )}
         <div className="logo-text">
           <span>{branding.businessName}</span>
-          <small className="role-tag">{user?.name || 'Usuario'}</small>
+          <small className="role-tag">{isAdmin ? 'Administrador' : (user?.name || 'Usuario')}</small>
         </div>
       </div>
 
@@ -117,30 +117,17 @@ export const Navbar = () => {
           padding: 0 10px;
           z-index: 1000;
           box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        }
-
-        .nav-links {
-          display: flex;
-          width: 100%;
-          justify-content: space-around;
+          background: var(--primary) !important; /* Green Bar */
         }
 
         .nav-link {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          color: var(--text-muted);
-          text-decoration: none;
-          font-size: 10px;
-          transition: 0.2s;
-          padding: 8px;
-          border-radius: var(--radius);
+          color: #000000 !important; /* Black text */
         }
 
         .nav-link.active {
-          color: var(--primary);
-          background: rgba(99, 102, 241, 0.1);
+          color: #000000 !important;
+          background: rgba(0, 0, 0, 0.1) !important;
+          font-weight: 800;
         }
 
         .nav-logo {
@@ -151,12 +138,21 @@ export const Navbar = () => {
           .nav-container {
             top: 0;
             left: 0;
-            width: 240px;
+            width: 220px;
             height: 100vh;
             flex-direction: column;
             justify-content: flex-start;
             padding: 20px 0;
             border-right: 1px solid var(--border);
+          }
+
+          @media (max-height: 500px) {
+            .nav-container { width: 170px; padding: 10px 0; }
+            .logo-img, .logo-placeholder { width: 35px !important; height: 35px !important; }
+            .logo-text span { font-size: 13px !important; }
+            .nav-links { gap: 2px; padding: 5px; }
+            .nav-link { padding: 6px 10px; font-size: 13px; gap: 8px; }
+            .branch-active { padding: 8px !important; }
           }
 
           .nav-links {
@@ -178,12 +174,30 @@ export const Navbar = () => {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            font-weight: bold;
-            font-size: 18px;
+            gap: 12px;
+            margin-bottom: 15px;
             text-align: center;
-            padding: 0 10px;
+            width: 100%;
+            padding: 0 15px;
+          }
+
+          .logo-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+          }
+
+          .logo-text span {
+            font-weight: 900;
+            font-size: 16px;
+            color: #000000;
+          }
+
+          .role-tag {
+            background: rgba(0, 0, 0, 0.1);
+            color: #000000;
+            padding: 3px 10px;
           }
 
           .logo-img {
@@ -191,6 +205,7 @@ export const Navbar = () => {
             height: 60px;
             object-fit: contain;
             border-radius: 50%;
+            border: 2px solid var(--border);
           }
           
           .logo-placeholder {
@@ -208,22 +223,23 @@ export const Navbar = () => {
         /* BRANCH SELECTOR STYLES */
         .branch-selector-wrapper {
           position: relative;
-          padding: 0 10px;
+          padding: 0 15px;
           margin: 10px 0;
+          width: 100%;
         }
 
         .branch-active {
           width: 100%;
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 10px 15px;
+          gap: 8px;
+          padding: 12px;
           border-radius: 12px;
-          border: 1px solid var(--border);
-          background: rgba(255,255,255,0.05);
-          color: var(--text-main);
+          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(0,0,0,0.05);
+          color: #000000;
+          font-weight: 800;
           cursor: pointer;
-          transition: 0.3s;
         }
 
         .branch-active:hover {
@@ -234,7 +250,7 @@ export const Navbar = () => {
         .branch-name-text {
           flex: 1;
           font-weight: 700;
-          font-size: 14px;
+          font-size: 13px;
           text-align: left;
           white-space: nowrap;
           overflow: hidden;
@@ -246,8 +262,8 @@ export const Navbar = () => {
         .branch-dropdown {
           position: absolute;
           top: 100%;
-          left: 10px;
-          right: 10px;
+          left: 15px;
+          right: 15px;
           margin-top: 8px;
           padding: 8px;
           border-radius: 15px;
@@ -259,7 +275,7 @@ export const Navbar = () => {
 
         .dropdown-header {
           padding: 8px 12px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 800;
           color: var(--text-muted);
           text-transform: uppercase;
@@ -281,11 +297,11 @@ export const Navbar = () => {
         }
 
         .branch-option:hover {
-          background: rgba(99, 102, 241, 0.1);
+          background: rgba(34, 197, 94, 0.1);
         }
 
         .branch-option.active {
-          background: rgba(99, 102, 241, 0.15);
+          background: rgba(34, 197, 94, 0.15);
           color: var(--primary);
         }
 
@@ -296,10 +312,8 @@ export const Navbar = () => {
           text-align: left;
         }
 
-        .option-info small {
-          font-size: 11px;
-          opacity: 0.7;
-        }
+        .option-info strong { font-size: 13px; }
+        .option-info small { font-size: 11px; opacity: 0.7; }
 
         .active-dot {
           width: 8px;
@@ -318,7 +332,7 @@ export const Navbar = () => {
           background: none;
           color: var(--primary);
           font-weight: bold;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -326,16 +340,42 @@ export const Navbar = () => {
           gap: 6px;
         }
 
-        .add-branch-btn:hover {
-          background: rgba(99, 102, 241, 0.05);
-          border-color: var(--primary);
-        }
-
         @media (max-width: 767px) {
-          .branch-selector-wrapper { margin: 0; padding: 0; }
-          .branch-active { border: none; background: none; }
+          .nav-container {
+            height: 65px;
+            padding: 0 5px;
+            gap: 5px;
+          }
+          .nav-links {
+            flex: 1;
+            justify-content: center;
+            gap: 15px;
+          }
+          .nav-link {
+            padding: 5px;
+            min-width: 50px;
+          }
+          .branch-selector-wrapper { 
+            margin: 0; 
+            padding: 0;
+            width: auto;
+            order: -1;
+          }
+          .branch-active { 
+            border: none; 
+            background: none; 
+            padding: 10px;
+          }
           .branch-name-text { display: none; }
-          .branch-dropdown { position: fixed; bottom: 80px; left: 10px; right: 10px; top: auto; }
+          .branch-dropdown { 
+            position: fixed; 
+            bottom: auto; 
+            top: 10px; 
+            left: 10px; 
+            right: 10px;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
         }
       `}</style>
     </nav>
