@@ -524,9 +524,9 @@ export const POS = () => {
               <button type="button" className="btn-close position-absolute end-0 me-3" onClick={() => setShowPaymentModal(false)}></button>
             </div>
             <div className="modal-body pt-0">
-              <div className="bg-success bg-opacity-10 rounded-4 p-3 mb-3 text-center border border-success border-opacity-25 mt-2">
-                <span className="text-secondary fw-bold text-uppercase small letter-spacing-1">Total a Pagar</span>
-                <div className="fw-bold text-success text-break" style={{ fontSize: '2.5rem', lineHeight: '1.2' }}>Gs. {total.toLocaleString('es-PY')}</div>
+              <div className="bg-dark text-white rounded-4 p-4 mb-4 text-center shadow">
+                <span className="text-light fw-bold small opacity-75 letter-spacing-1">TOTAL A PAGAR</span>
+                <div className="fw-bolder text-white text-break mt-1" style={{ fontSize: '3rem', lineHeight: '1' }}>Gs. {total.toLocaleString('es-PY')}</div>
               </div>
 
               <div className="d-flex gap-2 mb-3">
