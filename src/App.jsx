@@ -9,6 +9,11 @@ import { Cashier } from './pages/Cashier';
 import { BrandingProvider } from './context/BrandingContext';
 import { AuthProvider } from './context/AuthContext';
 import { BranchProvider } from './context/BranchContext';
+import { db } from './db/db';
+import { supabase } from './utils/supabase';
+
+window.db = db;
+window.supabase = supabase;
 
 function App() {
   return (
