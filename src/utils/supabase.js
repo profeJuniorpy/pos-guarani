@@ -10,5 +10,8 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 export const toUUID = (id) => {
+  if (typeof id === 'number') {
+    return '00000000-0000-0000-0000-' + String(id).padStart(12, '0');
+  }
   return id;
 };

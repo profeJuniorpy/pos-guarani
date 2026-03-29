@@ -66,8 +66,8 @@ export const POS = () => {
         // Asegurar que la sucursal exista en la nube antes de insertar una venta para evitar error de Foreign Key
         if (activeBranch) {
           const { error: branchError } = await supabase.from('branches').upsert([{
-             ...activeBranch,
-             id: toUUID(activeBranch.id)
+             id: toUUID(activeBranch.id),
+             name: activeBranch.name
           }]);
           if (branchError) console.warn('Branch sync warning:', branchError);
         }
@@ -85,6 +85,7 @@ export const POS = () => {
         if (payload.id) payload.id = toUUID(payload.id);
         if (payload.branch_id) payload.branch_id = toUUID(payload.branch_id);
         if (payload.product_id) payload.product_id = toUUID(payload.product_id);
+        if (payload.category_id) payload.category_id = toUUID(payload.category_id);
         
         // Supabase schema often omits id on join tables
         if (table === 'branch_stock') {
