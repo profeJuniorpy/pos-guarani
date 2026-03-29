@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useBranding } from '../context/BrandingContext';
-import { Save, Image as ImageIcon, Sun, Moon, CloudUpload } from 'lucide-react';
+import { Save, Image as ImageIcon, Sun, Moon, Upload } from 'lucide-react';
 import { db } from '../db/db';
 import { supabase } from '../utils/supabase';
 
@@ -139,7 +139,7 @@ export const Settings = () => {
             onClick={handleForceSync}
             disabled={syncStatus !== null}
           >
-            <CloudUpload size={20} />
+            <Upload size={20} />
             {syncStatus || 'Forzar Sincronización Masiva a la Nube'}
           </button>
         </section>
