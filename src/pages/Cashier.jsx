@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useBranches } from '../context/BranchContext';
-import { supabase } from '../utils/supabase';
+import { supabase, toUUID } from '../utils/supabase';
 import { db } from '../db/db';
 import { Package, Clock, Printer, MinusCircle, DollarSign, X, Edit2 } from 'lucide-react';
 
@@ -75,11 +75,14 @@ export const Cashier = () => {
     
     // Sync to Supabase
     try {
-      await supabase.from('cash_sessions').upsert([{
+      const syncSession = {
         ...updatedSession,
+        id: toUUID(updatedSession.id),
+        branch_id: toUUID(updatedSession.branch_id),
         openTime: updatedSession.openTime.toISOString(),
         closeTime: updatedSession.closeTime.toISOString()
-      }]);
+      };
+      await supabase.from('cash_sessions').upsert([syncSession]);
     } catch (e) {
       console.error("Cloud sync failed", e);
     }
@@ -106,10 +109,14 @@ export const Cashier = () => {
     
     // Sync to Supabase
     try {
-      await supabase.from('cash_movements').insert([{
+      const syncMovement = {
         ...newMovement,
+        id: toUUID(newMovement.id),
+        sessionId: toUUID(newMovement.sessionId),
+        branch_id: toUUID(newMovement.branch_id),
         timestamp: newMovement.timestamp.toISOString()
-      }]);
+      };
+      await supabase.from('cash_movements').insert([syncMovement]);
     } catch (e) {
       console.error("Cloud sync failed", e);
     }

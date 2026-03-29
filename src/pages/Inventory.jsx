@@ -4,7 +4,7 @@ import { Plus, Search, Edit2, Trash2, Camera, AlertCircle, ShoppingBag, FolderRo
 import { BarcodeScanner } from '../components/pos/BarcodeScanner';
 import { useAuth } from '../context/AuthContext';
 import { useBranches } from '../context/BranchContext';
-import { supabase } from '../utils/supabase';
+import { supabase, toUUID } from '../utils/supabase';
 
 export const Inventory = () => {
   const { isAdmin } = useAuth();
@@ -51,7 +51,15 @@ export const Inventory = () => {
 
   const syncToCloud = async (table, data) => {
     try {
-      const { error } = await supabase.from(table).upsert([data]);
+      if (!supabase) return;
+      
+      const payload = { ...data };
+      if (payload.id) payload.id = toUUID(payload.id);
+      if (payload.product_id) payload.product_id = toUUID(payload.product_id);
+      if (payload.branch_id) payload.branch_id = toUUID(payload.branch_id);
+      if (payload.category_id) payload.category_id = toUUID(payload.category_id);
+
+      const { error } = await supabase.from(table).upsert([payload]);
       if (error) throw error;
     } catch (err) {
       console.warn(`❌ Sync fail ${table}:`, err.message);

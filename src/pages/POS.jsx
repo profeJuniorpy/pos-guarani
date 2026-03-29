@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../db/db';
 import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag, Filter } from 'lucide-react';
 import { useBranches } from '../context/BranchContext';
-import { supabase } from '../utils/supabase';
+import { supabase, toUUID } from '../utils/supabase';
 
 export const POS = () => {
   const { activeBranch } = useBranches();
@@ -67,12 +67,16 @@ export const POS = () => {
           total: data.total,
           payment_method: data.paymentMethod,
           timestamp: data.timestamp,
-          items: data.items,
-          branch_id: data.branch_id
+          items: data.items.map(item => ({ ...item, id: toUUID(item.id), category_id: toUUID(item.category_id) })),
+          branch_id: toUUID(data.branch_id)
         }]);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from(table).upsert([data]);
+        const payload = { ...data };
+        if (payload.id) payload.id = toUUID(payload.id);
+        if (payload.branch_id) payload.branch_id = toUUID(payload.branch_id);
+        if (payload.product_id) payload.product_id = toUUID(payload.product_id);
+        const { error } = await supabase.from(table).upsert([payload]);
         if (error) throw error;
       }
     } catch (err) {
