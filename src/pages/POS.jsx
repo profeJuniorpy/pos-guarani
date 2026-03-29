@@ -194,14 +194,19 @@ export const POS = () => {
 
       syncWithCloud('sales', saleData);
       setOrderComplete(true);
-      setCart([]);
       setShowPaymentModal(false);
       setShowCartMobile(false);
-      setReceivedAmount('');
       loadProducts();
     } catch (err) {
       console.error("Error completando la venta:", err);
     }
+  };
+
+  const startNewSale = () => {
+    setOrderComplete(false);
+    setCart([]);
+    setReceivedAmount('');
+    setPaymentMethod('Efectivo');
   };
 
   const handlePrintTicket = () => {
@@ -271,7 +276,7 @@ export const POS = () => {
           <button onClick={handlePrintTicket} className="btn btn-outline-dark btn-lg d-flex justify-content-center align-items-center fw-bold">
             <Printer size={20} className="me-2" /> Imprimir Válido
           </button>
-          <button onClick={() => setOrderComplete(false)} className="btn btn-success btn-lg shadow-sm fw-bold">
+          <button onClick={startNewSale} className="btn btn-success btn-lg shadow-sm fw-bold">
             Siguiente Venta
           </button>
         </div>
