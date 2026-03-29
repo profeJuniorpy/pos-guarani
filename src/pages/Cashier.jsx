@@ -120,7 +120,59 @@ export const Cashier = () => {
   };
 
   const handlePrintArqueo = () => {
-    window.print();
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const content = `
+      <html>
+        <head><title>Arqueo - San Lucas</title>
+        <style>
+          body { font-family: 'Courier New', monospace; width: 50mm; margin: 0; padding: 2mm; font-size: 10px; color: black; }
+          .center { text-align: center; } 
+          .hr { border-top: 1px dashed black; margin: 4px 0; }
+          h2 { font-size: 14px; margin: 4px 0; }
+          p { margin: 2px 0; }
+          .row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .bold { font-weight: bold; }
+        </style></head>
+        <body>
+          <h2 class="center">ARQUEO DE CAJA</h2>
+          <p class="center" style="font-size: 8px;">${new Date().toLocaleString()}</p>
+          <div class="hr"></div>
+          <p><b>Sucursal:</b> ${activeBranch?.name}</p>
+          <p><b>Turno:</b> ${new Date(session?.openTime).toLocaleTimeString()}</p>
+          <div class="hr"></div>
+          
+          <div class="row"><span>Monto Inicial:</span> <span>${session?.initialAmount.toLocaleString()}</span></div>
+          <div class="row"><span>Ventas (Efectivo):</span> <span>${cashSales.toLocaleString()}</span></div>
+          <div class="row"><span>Retiros:</span> <span>-${totalWithdrawn.toLocaleString()}</span></div>
+          <div class="hr"></div>
+          
+          <div class="row bold" style="font-size: 12px; margin-top: 5px;">
+            <span>TOTAL ESPERADO:</span>
+            <span>Gs. ${expectedCash.toLocaleString()}</span>
+          </div>
+          
+          <div class="hr" style="margin-top: 15px;"></div>
+          <p class="center" style="margin-top:10px;">Comprobante de Caja</p>
+        </body>
+      </html>
+    `;
+
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(content);
+    iframe.contentWindow.document.close();
+
+    iframe.onload = function() {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+      } catch (e) {
+        console.error("Print failed", e);
+      }
+    };
   };
 
   const closeAllModals = () => {

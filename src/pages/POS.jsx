@@ -59,19 +59,24 @@ export const POS = () => {
     }
   };
 
-  const syncWithCloud = async (saleData) => {
+  const syncWithCloud = async (table, data) => {
     try {
       if (!supabase) return;
-      const { error } = await supabase.from('sales').insert([{
-        total: saleData.total,
-        payment_method: saleData.paymentMethod,
-        timestamp: saleData.timestamp,
-        items: saleData.items,
-        branch_id: saleData.branch_id
-      }]);
-      if (error) throw error;
+      if (table === 'sales') {
+        const { error } = await supabase.from('sales').insert([{
+          total: data.total,
+          payment_method: data.paymentMethod,
+          timestamp: data.timestamp,
+          items: data.items,
+          branch_id: data.branch_id
+        }]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from(table).upsert([data]);
+        if (error) throw error;
+      }
     } catch (err) {
-      console.warn('⚠️ Fallo sincronización Cloud:', err.message);
+      console.warn(`⚠️ Fallo sincronización Cloud [${table}]:`, err.message);
     }
   };
 
@@ -165,7 +170,7 @@ export const POS = () => {
         }
       }
 
-      syncWithCloud(saleData);
+      syncWithCloud('sales', saleData);
       setOrderComplete(true);
       setCart([]);
       setShowPaymentModal(false);
@@ -178,18 +183,23 @@ export const POS = () => {
   };
 
   const handlePrintTicket = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Para móviles, la mejor forma sin ser bloqueado es usar un iframe oculto
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
     
-    printWindow.document.write(`
+    const content = `
       <html>
         <head><title>Ticket - San Lucas POS</title>
-        <style>body { font-family: 'Courier New', monospace; width: 50mm; padding: 2mm; margin: 0; font-size: 10px; color: black; }
-        .center { text-align: center; } .hr { border-top: 1px dashed black; margin: 5px 0; }
-        h2 { font-size: 14px; margin: 5px 0; }
-        p { margin: 3px 0; }
-        .row { display: flex; justify-content: space-between; margin: 3px 0; }
-        .item-name { max-width: 30mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }</style></head>
+        <style>
+          body { font-family: 'Courier New', monospace; width: 50mm; margin: 0; padding: 2mm; font-size: 10px; color: black; }
+          .center { text-align: center; } 
+          .hr { border-top: 1px dashed black; margin: 4px 0; }
+          h2 { font-size: 14px; margin: 4px 0; }
+          p { margin: 2px 0; }
+          .row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .item-name { max-width: 30mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        </style></head>
         <body>
           <h2 class="center">SAN LUCAS</h2>
           <p class="center" style="font-size: 8px;">${new Date().toLocaleString()}</p>
@@ -203,10 +213,24 @@ export const POS = () => {
           <div class="hr"></div>
           <div class="row"><b>Total:</b> <b>Gs. ${total.toLocaleString('es-PY')}</b></div>
           <p class="center" style="margin-top:10px;">¡Muchas Gracias!</p>
-          <script>window.onload = () => { window.print(); window.close(); }</script>
-        </body></html>
-    `);
-    printWindow.document.close();
+        </body>
+      </html>
+    `;
+
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(content);
+    iframe.contentWindow.document.close();
+
+    // Trigger print
+    iframe.onload = function() {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+      } catch (e) {
+        console.error("Print failed", e);
+      }
+    };
   };
 
   const filteredProducts = products.filter(p => {
@@ -282,23 +306,23 @@ export const POS = () => {
           </div>
 
           {/* Product Grid */}
-          <div className="row g-2 g-md-3 overflow-auto pb-5 pb-md-2 pe-1" style={{ flex: 1, alignContent: 'flex-start' }}>
+          <div className="row g-2 g-md-3 overflow-auto pb-5 pb-md-2 pe-1 mb-5" style={{ flex: 1, alignContent: 'flex-start' }}>
             {filteredProducts.map(product => (
-              <div key={product.id} className="col-6 col-sm-4 col-lg-3">
+              <div key={product.id} className="col-6 col-md-4 col-lg-3">
                 <div className="card h-100 border-0 shadow-sm rounded-4 text-center cursor-pointer transition-transform product-card" onClick={() => addToCart(product)}>
-                  <div className="card-body p-3 d-flex flex-column h-100 position-relative">
-                    <span className="badge bg-success bg-opacity-10 text-success position-absolute top-0 end-0 m-2 rounded-pill px-2">
+                  <div className="card-body p-2 p-md-3 d-flex flex-column position-relative h-100">
+                    <span className="badge bg-success bg-opacity-10 text-success fw-bold position-absolute top-0 end-0 m-1 rounded-pill" style={{fontSize:'0.65rem'}}>
                       {product.stock} {product.unit}
                     </span>
-                    <h6 className="card-title fw-bold text-dark mt-3 mb-1 text-truncate-2" style={{fontSize: '0.9rem', minHeight: '40px'}}>
+                    <h6 className="card-title fw-bold text-dark mt-3 mb-1 text-truncate w-100 px-1" style={{fontSize: '0.8rem'}}>
                       {product.name}
                     </h6>
-                    <div className="mt-auto">
-                      <p className="card-text text-success fw-bold mb-2 fs-5">
+                    <div className="mt-auto pt-2">
+                      <p className="card-text text-success fw-black mb-2" style={{fontSize: '1rem'}}>
                         Gs. {product.price.toLocaleString()}
                       </p>
-                      <button className="btn btn-sm btn-success w-100 fw-bold rounded-pill p-2 add-btn">
-                        <Plus size={16} /> Agregar
+                      <button className="btn btn-sm btn-success w-100 fw-bold rounded-pill p-1 add-btn d-flex align-items-center justify-content-center" style={{fontSize:'0.75rem'}}>
+                        <Plus size={14} className="me-1" /> Add
                       </button>
                     </div>
                   </div>
