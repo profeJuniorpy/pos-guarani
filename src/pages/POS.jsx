@@ -63,6 +63,14 @@ export const POS = () => {
     try {
       if (!supabase) return;
       if (table === 'sales') {
+        // Asegurar que la sucursal exista en la nube antes de insertar una venta para evitar error de Foreign Key
+        if (activeBranch) {
+          await supabase.from('branches').upsert([{
+             ...activeBranch,
+             id: toUUID(activeBranch.id)
+          }]).catch(()=>null);
+        }
+
         const { error } = await supabase.from('sales').insert([{
           total: data.total,
           payment_method: data.paymentMethod,
@@ -76,6 +84,10 @@ export const POS = () => {
         if (payload.id) payload.id = toUUID(payload.id);
         if (payload.branch_id) payload.branch_id = toUUID(payload.branch_id);
         if (payload.product_id) payload.product_id = toUUID(payload.product_id);
+        
+        // Supabase schema often omits id on join tables
+        if (table === 'branch_stock') delete payload.id;
+        
         const { error } = await supabase.from(table).upsert([payload]);
         if (error) throw error;
       }
