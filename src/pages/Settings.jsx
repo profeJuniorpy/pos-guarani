@@ -22,7 +22,19 @@ export const Settings = () => {
         setSyncStatus(`Subiendo ${table}...`);
         const data = await db[table].toArray();
         if (data.length > 0) {
-          const { error } = await supabase.from(table).upsert(data);
+          const sanitizedData = data.map(item => {
+            const cleanItem = { ...item };
+            if (table === 'products') {
+              delete cleanItem.stock;
+              delete cleanItem.branch_id;
+            }
+            if (table === 'branch_stock') {
+              delete cleanItem.id;
+            }
+            return cleanItem;
+          });
+
+          const { error } = await supabase.from(table).upsert(sanitizedData);
           if (error) {
              console.error(`Error en ${table}:`, error);
              errorOccurred = true;
