@@ -65,10 +65,11 @@ export const POS = () => {
       if (table === 'sales') {
         // Asegurar que la sucursal exista en la nube antes de insertar una venta para evitar error de Foreign Key
         if (activeBranch) {
-          await supabase.from('branches').upsert([{
+          const { error: branchError } = await supabase.from('branches').upsert([{
              ...activeBranch,
              id: toUUID(activeBranch.id)
-          }]).catch(()=>null);
+          }]);
+          if (branchError) console.warn('Branch sync warning:', branchError);
         }
 
         const { error } = await supabase.from('sales').insert([{
