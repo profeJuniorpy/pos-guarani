@@ -1,11 +1,42 @@
 import { useState } from 'react';
 import { useBranding } from '../context/BrandingContext';
-import { Save, Image as ImageIcon, Sun, Moon } from 'lucide-react';
+import { Save, Image as ImageIcon, Sun, Moon, CloudUpload } from 'lucide-react';
+import { db } from '../db/db';
+import { supabase } from '../utils/supabase';
 
 export const Settings = () => {
   const { branding, updateBranding } = useBranding();
   const [form, setForm] = useState(branding);
   const [isSaving, setIsSaving] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+
+  const handleForceSync = async () => {
+    try {
+      if (!window.confirm("¿Forzar subida masiva de tus datos locales a Supabase?")) return;
+      setSyncStatus('Sincronizando a la Nube...');
+      
+      const tables = ['branches', 'categories', 'suppliers', 'products', 'branch_stock'];
+      let errorOccurred = false;
+      
+      for (const table of tables) {
+        setSyncStatus(`Subiendo ${table}...`);
+        const data = await db[table].toArray();
+        if (data.length > 0) {
+          const { error } = await supabase.from(table).upsert(data);
+          if (error) {
+             console.error(`Error en ${table}:`, error);
+             errorOccurred = true;
+             alert(`Fallo en ${table}: ` + error.message);
+          }
+        }
+      }
+      setSyncStatus(errorOccurred ? 'Sincronización completada con ⚠️errores' : 'Sincronización Total Exitosa ✅');
+      setTimeout(()=>setSyncStatus(null), 5000);
+    } catch(err) {
+      console.error(err);
+      setSyncStatus('Error crítico ❌');
+    }
+  };
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
@@ -99,6 +130,20 @@ export const Settings = () => {
           </div>
         </section>
 
+        <section className="settings-section glass danger-zone">
+          <h3>Administración Avanzada</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>Utiliza esta herramienta si vaciaste tu base de datos de la nube Supabase y necesitas que vuelva a reflejar la información que tienes aquí.</p>
+          <button 
+            type="button" 
+            className="sync-btn" 
+            onClick={handleForceSync}
+            disabled={syncStatus !== null}
+          >
+            <CloudUpload size={20} />
+            {syncStatus || 'Forzar Sincronización Masiva a la Nube'}
+          </button>
+        </section>
+
         <button type="submit" className="save-btn" disabled={isSaving}>
           <Save size={20} />
           {isSaving ? 'Guardando...' : 'Guardar Cambios'}
@@ -183,6 +228,25 @@ export const Settings = () => {
           background: var(--primary);
           color: white;
           border-color: var(--primary);
+        }
+
+        .sync-btn {
+          background: #4ade80;
+          color: #064e3b;
+          padding: 14px;
+          border-radius: var(--radius);
+          font-weight: 600;
+          font-size: 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          border: 1px solid #22c55e;
+        }
+        
+        .sync-btn:disabled {
+          opacity: 0.8;
+          cursor: not-allowed;
         }
 
         .save-btn {
