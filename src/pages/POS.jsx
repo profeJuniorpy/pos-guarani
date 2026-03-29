@@ -86,10 +86,14 @@ export const POS = () => {
         if (payload.product_id) payload.product_id = toUUID(payload.product_id);
         
         // Supabase schema often omits id on join tables
-        if (table === 'branch_stock') delete payload.id;
-        
-        const { error } = await supabase.from(table).upsert([payload]);
-        if (error) throw error;
+        if (table === 'branch_stock') {
+          delete payload.id;
+          const { error } = await supabase.from(table).upsert([payload], { onConflict: 'branch_id, product_id' });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from(table).upsert([payload]);
+          if (error) throw error;
+        }
       }
     } catch (err) {
       console.warn(`⚠️ Fallo sincronización Cloud [${table}]:`, err.message);
