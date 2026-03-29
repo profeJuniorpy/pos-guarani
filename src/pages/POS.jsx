@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag, Filter } from 'lucide-react';
+import { Search, Trash2, Plus, Minus, CreditCard, DollarSign, ShoppingCart, CheckCircle, Printer, X, Scale, ShoppingBag, Filter, User } from 'lucide-react';
 import { useBranches } from '../context/BranchContext';
+import { useBranding } from '../context/BrandingContext';
 import { supabase, toUUID } from '../utils/supabase';
 
 export const POS = () => {
   const { activeBranch } = useBranches();
+  const { branding } = useBranding();
   
   // Data States
   const [products, setProducts] = useState([]);
@@ -27,6 +29,8 @@ export const POS = () => {
   const [weightInput, setWeightInput] = useState('0');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
   const [receivedAmount, setReceivedAmount] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [clientRuc, setClientRuc] = useState('');
 
   useEffect(() => { 
     if (activeBranch) {
@@ -72,12 +76,16 @@ export const POS = () => {
           if (branchError) console.warn('Branch sync warning:', branchError);
         }
 
+        const cloudSale = { ...data };
+        delete cloudSale.clientName;
+        delete cloudSale.clientRuc;
+
         const { error } = await supabase.from('sales').insert([{
-          total: data.total,
-          payment_method: data.paymentMethod,
-          timestamp: data.timestamp,
-          items: data.items.map(item => ({ ...item, id: toUUID(item.id), category_id: toUUID(item.category_id) })),
-          branch_id: toUUID(data.branch_id)
+          total: cloudSale.total,
+          payment_method: cloudSale.paymentMethod,
+          timestamp: cloudSale.timestamp,
+          items: cloudSale.items.map(item => ({ ...item, id: toUUID(item.id), category_id: toUUID(item.category_id) })),
+          branch_id: toUUID(cloudSale.branch_id)
         }]);
         if (error) throw error;
       } else {
@@ -177,7 +185,9 @@ export const POS = () => {
         paymentMethod,
         receivedAmount: paymentMethod === 'Efectivo' ? Number(receivedAmount) : total,
         change: paymentMethod === 'Efectivo' ? Number(receivedAmount) - total : 0,
-        branch_id: activeBranch.id
+        branch_id: activeBranch.id,
+        clientName: clientName || 'Consumidor Final',
+        clientRuc: clientRuc || 'XXX'
       };
 
       await db.sales.add(saleData);
@@ -206,6 +216,8 @@ export const POS = () => {
     setOrderComplete(false);
     setCart([]);
     setReceivedAmount('');
+    setClientName('');
+    setClientRuc('');
     setPaymentMethod('Efectivo');
   };
 
@@ -228,8 +240,14 @@ export const POS = () => {
           .item-name { max-width: 30mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         </style></head>
         <body>
-          <h2 class="center">SAN LUCAS</h2>
-          <p class="center" style="font-size: 8px;">${new Date().toLocaleString()}</p>
+          ${branding?.logoUrl ? `<img src="${branding.logoUrl}" style="max-width: 40mm; display: block; margin: 0 auto; margin-bottom: 5px;" />` : ''}
+          <h2 class="center">${branding?.businessName || 'SAN LUCAS POS'}</h2>
+          ${branding?.address ? `<p class="center">${branding.address}</p>` : ''}
+          ${branding?.phone ? `<p class="center">Tel: ${branding.phone}</p>` : ''}
+          <p class="center" style="font-size: 8px;">Fec: ${new Date().toLocaleString()}</p>
+          <div class="hr"></div>
+          <p><b>Cliente:</b> ${clientName || 'Consumidor Final'}</p>
+          <p><b>RUC/CI:</b> ${clientRuc || 'XXX'}</p>
           <div class="hr"></div>
           ${cart.map(item => `
             <div class="row">
@@ -501,29 +519,47 @@ export const POS = () => {
       <div className={`modal fade ${showPaymentModal ? 'show d-block' : ''}`} tabIndex="-1">
         <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content border-0 shadow-lg rounded-4">
-            <div className="modal-header border-0">
-              <h4 className="modal-title fw-bold text-dark">Finalizar Venta</h4>
-              <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
+            <div className="modal-header border-0 pb-1">
+              <h4 className="modal-title fw-bold text-dark w-100 text-center">Finalizar Venta</h4>
+              <button type="button" className="btn-close position-absolute end-0 me-3" onClick={() => setShowPaymentModal(false)}></button>
             </div>
-            <div className="modal-body">
-              <div className="bg-success bg-opacity-10 rounded-4 p-3 mb-4 text-center border border-success border-opacity-25">
+            <div className="modal-body pt-0">
+              <div className="bg-success bg-opacity-10 rounded-4 p-3 mb-3 text-center border border-success border-opacity-25 mt-2">
                 <span className="text-secondary fw-bold text-uppercase small letter-spacing-1">Total a Pagar</span>
-                <div className="fs-1 fw-bold text-success">Gs. {total.toLocaleString()}</div>
+                <div className="fw-bold text-success text-break" style={{ fontSize: '2.5rem', lineHeight: '1.2' }}>Gs. {total.toLocaleString('es-PY')}</div>
               </div>
 
-              <div className="d-flex gap-2 mb-4">
+              <div className="d-flex gap-2 mb-3">
                 <button 
-                  className={`btn flex-grow-1 p-3 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-2 ${paymentMethod === 'Efectivo' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
+                  className={`btn flex-grow-1 p-2 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-1 ${paymentMethod === 'Efectivo' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
                   onClick={() => setPaymentMethod('Efectivo')}
                 >
-                  <DollarSign size={24} /> Efectivo
+                  <DollarSign size={20} /> Efectivo
                 </button>
                 <button 
-                  className={`btn flex-grow-1 p-3 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-2 ${paymentMethod === 'Transferencia' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
+                  className={`btn flex-grow-1 p-2 rounded-4 fw-bold d-flex flex-column align-items-center justify-content-center gap-1 ${paymentMethod === 'Transferencia' ? 'btn-success shadow-sm' : 'btn-light border text-muted'}`}
                   onClick={() => setPaymentMethod('Transferencia')}
                 >
-                  <CreditCard size={24} /> Transferencia
+                  <CreditCard size={20} /> Transf.
                 </button>
+              </div>
+
+              <div className="form-group mb-3 bg-light p-3 rounded-4 border">
+                <label className="form-label text-muted fw-bold d-flex align-items-center small mb-2"><User size={14} className="me-1" /> Datos del Cliente (Opc.)</label>
+                <input 
+                  type="text" 
+                  className="form-control mb-2 border-0 shadow-sm" 
+                  placeholder="Nombre y Apellido"
+                  value={clientName}
+                  onChange={e => setClientName(e.target.value)}
+                />
+                <input 
+                  type="text" 
+                  className="form-control border-0 shadow-sm" 
+                  placeholder="RUC o Documento"
+                  value={clientRuc}
+                  onChange={e => setClientRuc(e.target.value)}
+                />
               </div>
 
               {isEfectivo && (
