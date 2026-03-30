@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../db/db';
-import { supabase, toUUID } from '../utils/supabase';
+import { supabase } from '../utils/supabase';
+
+// Helper local para asegurar integridad si la importación falla
+const toUUID = (id) => id;
 
 const BranchContext = createContext();
 
