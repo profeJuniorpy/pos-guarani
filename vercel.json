@@ -1,3 +1,4 @@
 {
+  "name": "pos-guarani",
   "installCommand": "npm install --legacy-peer-deps"
 }
