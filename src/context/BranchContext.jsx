@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../db/db';
+import { supabase, toUUID } from '../utils/supabase';
 
 const BranchContext = createContext();
 
@@ -73,12 +74,16 @@ export const BranchProvider = ({ children }) => {
 
   const deleteBranch = async (id) => {
     try {
-      // Regla de Integridad Referencial: Verificar Ventas y Stock
-      const salesCount = await db.sales.where('branch_id').equals(id).count();
-      const stockCount = await db.branch_stock.where('branch_id').equals(id).count();
+      // Regla de Integridad Referencial: Verificar Ventas, Stock y Sesiones
+      const [salesCount, stockCount, sessionCount] = await Promise.all([
+        db.sales.where('branch_id').equals(id).count(),
+        db.branch_stock.where('branch_id').equals(id).count(),
+        db.cashSessions.where('branch_id').equals(id).count()
+      ]);
 
-      if (salesCount > 0 || stockCount > 0) {
-        throw new Error(`No se puede eliminar la sucursal: tiene ${salesCount} ventas y ${stockCount} productos en stock asociados.`);
+      if (salesCount > 0 || stockCount > 0 || sessionCount > 0) {
+        throw new Error(`🚫 Regla de Integridad: No se puede eliminar la sucursal. 
+Existen ${salesCount} ventas, ${stockCount} productos en stock y ${sessionCount} sesiones de caja asociadas.`);
       }
 
       await db.branches.delete(id);

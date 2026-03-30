@@ -170,7 +170,11 @@ export const POS = () => {
   };
 
   useEffect(() => {
-    const newTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const newTotal = cart.reduce((sum, item) => {
+      const price = Number(item.price) || 0;
+      const qty = Number(item.quantity) || 0;
+      return sum + (price * qty);
+    }, 0);
     setTotal(newTotal);
   }, [cart]);
 
@@ -222,82 +226,102 @@ export const POS = () => {
   };
 
   const handlePrintTicket = () => {
-    // Para móviles, la mejor forma sin ser bloqueado es usar un iframe oculto
+    // Para móviles y desktop, la mejor forma sin ser bloqueado es usar un iframe oculto
     const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
+    // 'display: none' a veces impide la impresión en ciertos navegadores (Safari/Firefox)
+    // Usamos visibilidad oculta y lo sacamos del flujo visual
+    iframe.style.visibility = 'hidden';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
     document.body.appendChild(iframe);
     
     const content = `
       <html>
         <head><title>Ticket - San Lucas POS</title>
         <style>
-          body { font-family: 'Courier New', monospace; width: 50mm; margin: 0; padding: 1mm; font-size: 9px; color: black; line-height: 1.2; }
+          body { font-family: 'Courier New', monospace; width: 52mm; margin: 0; padding: 2mm; font-size: 10px; color: black; line-height: 1.2; }
           .center { text-align: center; } 
-          .hr { border-top: 1px dashed black; margin: 4px 0; }
-          h2 { font-size: 12px; margin: 4px 0; }
+          .hr { border-top: 1px dashed black; margin: 6px 0; }
+          h2 { font-size: 13px; margin: 4px 0; }
           p { margin: 1px 0; }
-          table { width: 100%; border-collapse: collapse; margin: 5px 0; font-size: 8px; }
+          table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 9px; }
           th { border-bottom: 1px solid black; text-align: left; padding: 2px 0; }
-          td { padding: 2px 0; vertical-align: top; }
+          td { padding: 3px 0; vertical-align: top; }
           .right { text-align: right; }
-          .total-row { font-size: 11px; font-weight: bold; margin-top: 5px; }
+          .total-row { font-size: 12px; font-weight: bold; margin-top: 8px; border-top: 1px solid black; padding-top: 4px; }
         </style></head>
         <body>
-          ${branding?.logoUrl ? `<img src="${branding.logoUrl}" style="max-width: 35mm; display: block; margin: 0 auto; margin-bottom: 5px;" />` : ''}
-          <h2 class="center">${branding?.businessName || 'SAN LUCAS POS'}</h2>
+          ${branding?.logoUrl ? `<img src="${branding.logoUrl}" style="max-width: 40mm; display: block; margin: 0 auto; margin-bottom: 5px;" />` : ''}
+          <h2 class="center">${branding?.businessName || 'PROFE JUNIOR POS'}</h2>
           ${branding?.address ? `<p class="center">${branding.address}</p>` : ''}
           ${branding?.phone ? `<p class="center">Tel: ${branding.phone}</p>` : ''}
-          <p class="center">Fec: ${new Date().toLocaleString()}</p>
+          <p class="center">Fec: ${new Date().toLocaleString('es-PY')}</p>
           <div class="hr"></div>
-          <p><b>Cliente:</b> ${clientName || 'Consumidor Final'}</p>
+          <p><b>Cliente:</b> ${(clientName || 'Consumidor Final').toUpperCase()}</p>
           <p><b>RUC/CI:</b> ${clientRuc || 'XXX'}</p>
           <div class="hr"></div>
           
           <table>
             <thead>
               <tr>
-                <th style="width: 15%">Ct</th>
-                <th style="width: 15%">Un</th>
-                <th style="width: 35%">Desc</th>
-                <th style="width: 15%">Pr</th>
-                <th style="width: 20%" class="right">Imp</th>
+                <th style="width: 15%">Cant</th>
+                <th style="width: 45%">Descripción</th>
+                <th style="width: 20%">Precio</th>
+                <th style="width: 20%" class="right">Total</th>
               </tr>
             </thead>
             <tbody>
-              ${cart.map(item => `
-                <tr>
-                  <td>${item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}</td>
-                  <td>${item.unit || 'Ud'}</td>
-                  <td>${item.name.substring(0, 15)}</td>
-                  <td>${Math.round(item.price).toLocaleString()}</td>
-                  <td class="right">${Math.round(item.price * item.quantity).toLocaleString()}</td>
-                </tr>
-              `).join('')}
+              ${cart.map(item => {
+                const name = (item.name || 'Producto').substring(0, 18);
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.price) || 0;
+                const lineTotal = qty * price;
+                return `
+                  <tr>
+                    <td>${qty % 1 === 0 ? qty : qty.toFixed(2)}</td>
+                    <td>${name}</td>
+                    <td>${Math.round(price).toLocaleString('es-PY')}</td>
+                    <td class="right">${Math.round(lineTotal).toLocaleString('es-PY')}</td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
 
           <div class="hr"></div>
-          <div class="total-row center">TOTAL: Gs. ${total.toLocaleString('es-PY')}</div>
-          <p class="center" style="font-size: 8px; margin-top: 8px;">¡Muchas Gracias!</p>
-          <p class="center" style="font-size: 7px;">${activeBranch?.name || ''}</p>
+          <div class="total-row center">TOTAL A PAGAR: Gs. ${Math.round(total || 0).toLocaleString('es-PY')}</div>
+          <p class="center" style="font-size: 9px; margin-top: 10px;">¡Muchas Gracias por su compra!</p>
+          <p class="center" style="font-size: 8px; opacity: 0.8;">${activeBranch?.name || ''}</p>
+          <p class="center" style="font-size: 7px; margin-top: 5px;">Sistema POS v1.2</p>
         </body>
       </html>
     `;
 
-    iframe.contentWindow.document.open();
-    iframe.contentWindow.document.write(content);
-    iframe.contentWindow.document.close();
-
-    // Trigger print
+    // Importante: Definir el onload ANTES de escribir el contenido
     iframe.onload = function() {
       try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 2000);
+        // Pequeño delay para asegurar que el contenido se renderizó
+        setTimeout(() => {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+          // Limpiar el iframe después de imprimir
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 3000);
+        }, 300);
       } catch (e) {
         console.error("Print failed", e);
       }
     };
+
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(content);
+    iframe.contentWindow.document.close();
   };
 
   const filteredProducts = products.filter(p => {

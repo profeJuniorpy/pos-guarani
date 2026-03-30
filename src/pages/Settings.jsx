@@ -51,66 +51,92 @@ const BranchManager = () => {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h3>Gestión de Sucursales</h3>
         {!isAdding && (
-          <button type="button" className="btn btn-sm btn-success rounded-pill px-3 fw-bold d-flex align-items-center gap-1" onClick={() => setIsAdding(true)}>
+          <button type="button" className="btn btn-sm btn-success rounded-pill px-3 fw-bold d-flex align-items-center gap-1 shadow-sm" onClick={() => setIsAdding(true)}>
             <Plus size={16} /> Nueva Sucursal
           </button>
         )}
       </div>
 
       {isAdding && (
-        <div className="branch-form-box mb-4 p-3 border rounded-4 bg-light shadow-sm">
-          <h5 className="fw-bold mb-3">{editingId ? 'Editar Sucursal' : 'Nueva Sucursal'}</h5>
-          <div className="row g-3">
-            <div className="col-12 col-md-5">
-              <label className="form-label small fw-bold">Nombre</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={branchForm.name} 
-                onChange={e => setBranchForm({...branchForm, name: e.target.value})}
-                placeholder="Nombre de la sucursal"
-                required
-              />
+        <div className="branch-form-box mb-4 p-4 border-2 border-success border-opacity-25 rounded-4 bg-white shadow-lg animate-slide-down">
+          <h5 className="fw-bold mb-4 text-dark d-flex align-items-center">
+            <Building className="me-2 text-success" /> {editingId ? 'Modificar Datos de Sucursal' : 'Configurar Nueva Sucursal'}
+          </h5>
+          <form onSubmit={handleSubmit}>
+            <div className="row g-4">
+              <div className="col-12 col-md-6">
+                <label className="form-label text-muted fw-bold small">Nombre de la Sucursal</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0"><Building size={18} /></span>
+                  <input 
+                    type="text" 
+                    className="form-control border-start-0 ps-0" 
+                    value={branchForm.name} 
+                    onChange={e => setBranchForm({...branchForm, name: e.target.value})}
+                    placeholder="Ej. Sucursal Centro"
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="col-12 col-md-6">
+                <label className="form-label text-muted fw-bold small">Dirección / Ubicación</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0"><MapPin size={18} /></span>
+                  <input 
+                    type="text" 
+                    className="form-control border-start-0 ps-0" 
+                    value={branchForm.address} 
+                    onChange={e => setBranchForm({...branchForm, address: e.target.value})}
+                    placeholder="Ej. Avda. Principal 456"
+                  />
+                </div>
+              </div>
+              <div className="col-12 d-flex justify-content-end gap-2 mt-4">
+                <button type="button" className="btn btn-light rounded-pill px-4 fw-bold" onClick={resetForm}>Cancelar</button>
+                <button type="submit" className="btn btn-success rounded-pill px-5 fw-bold shadow-sm">
+                  <Save size={18} className="me-2" />
+                  {editingId ? 'Guardar Cambios' : 'Registrar Sucursal'}
+                </button>
+              </div>
             </div>
-            <div className="col-12 col-md-5">
-              <label className="form-label small fw-bold">Dirección</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                value={branchForm.address} 
-                onChange={e => setBranchForm({...branchForm, address: e.target.value})}
-                placeholder="Dirección física"
-              />
-            </div>
-            <div className="col-12 col-md-2 d-flex align-items-end gap-2">
-              <button type="button" className="btn btn-success fw-bold flex-grow-1" onClick={handleSubmit}>
-                {editingId ? 'Actualizar' : 'Crear'}
-              </button>
-              <button type="button" className="btn btn-light" onClick={resetForm}>Cancelar</button>
-            </div>
-          </div>
+          </form>
         </div>
       )}
 
-      <div className="branch-list d-flex flex-column gap-2">
-        {branches.map(branch => (
-          <div key={branch.id} className="branch-item p-3 border rounded-4 bg-white d-flex justify-content-between align-items-center transition-transform shadow-sm">
+      <div className="branch-list d-flex flex-column gap-3">
+        {branches.length === 0 ? (
+          <div className="text-center p-5 text-muted bg-light rounded-4 border-dashed border-2">
+            No hay sucursales configuradas. Comience agregando una.
+          </div>
+        ) : branches.map(branch => (
+          <div key={branch.id} className="branch-item p-3 border rounded-4 bg-white d-flex justify-content-between align-items-center transition-transform shadow-sm hover-shadow border-light border-start-4 border-start-success">
             <div className="d-flex align-items-center gap-3">
-              <div className="branch-icon p-2 bg-success bg-opacity-10 text-success rounded-circle">
+              <div className="branch-icon p-2 bg-success bg-opacity-10 text-success rounded-circle shadow-inner">
                 <Building size={20} />
               </div>
               <div>
-                <div className="fw-bold text-dark">{branch.name}</div>
-                <div className="small text-muted d-flex align-items-center gap-1">
-                  <MapPin size={12} /> {branch.address || 'Sin dirección'}
+                <div className="fw-bold text-dark fs-5">{branch.name}</div>
+                <div className="small text-muted d-flex align-items-center gap-1 opacity-75">
+                  <MapPin size={14} className="text-danger" /> {branch.address || 'Sin dirección registrada'}
                 </div>
               </div>
             </div>
-            <div className="d-flex gap-2">
-              <button type="button" className="btn btn-sm btn-outline-primary border-0 p-2" onClick={() => handleEdit(branch)}>
+            <div className="d-flex gap-1">
+              <button 
+                type="button" 
+                className="btn btn-icon btn-outline-primary border-0 p-2 rounded-circle hover-bg-primary" 
+                onClick={() => { handleEdit(branch); window.scrollTo({top: 100, behavior: 'smooth'}); }}
+                title="Modificar Datos"
+              >
                 <Edit2 size={18} />
               </button>
-              <button type="button" className="btn btn-sm btn-outline-danger border-0 p-2" onClick={() => handleDelete(branch.id)}>
+              <button 
+                type="button" 
+                className="btn btn-icon btn-outline-danger border-0 p-2 rounded-circle hover-bg-danger" 
+                onClick={() => handleDelete(branch.id)}
+                title="Eliminar Sucursal"
+              >
                 <Trash2 size={18} />
               </button>
             </div>
