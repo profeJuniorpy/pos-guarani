@@ -36,14 +36,81 @@ export const BranchProvider = ({ children }) => {
   };
 
   const addBranch = async (branchData) => {
-    const id = await db.branches.add(branchData);
-    const newBranch = { id, ...branchData };
-    setBranches([...branches, newBranch]);
-    return newBranch;
+    try {
+      const id = await db.branches.add(branchData);
+      const newBranch = { id, ...branchData };
+      setBranches([...branches, newBranch]);
+      
+      // Sincronizar con Supabase
+      if (supabase) {
+        const { error } = await supabase.from('branches').upsert([{ id: toUUID(id), ...branchData }]);
+        if (error) console.warn('Error sync adding branch:', error);
+      }
+      
+      return newBranch;
+    } catch (err) {
+      console.error("Error adding branch:", err);
+      throw err;
+    }
+  };
+
+  const updateBranch = async (id, branchData) => {
+    try {
+      await db.branches.update(id, branchData);
+      setBranches(branches.map(b => b.id === id ? { ...b, ...branchData } : b));
+      if (activeBranch?.id === id) setActiveBranch({ ...activeBranch, ...branchData });
+
+      // Sincronizar con Supabase
+      if (supabase) {
+        const { error } = await supabase.from('branches').upsert([{ id: toUUID(id), ...branchData }]);
+        if (error) console.warn('Error sync updating branch:', error);
+      }
+    } catch (err) {
+      console.error("Error updating branch:", err);
+      throw err;
+    }
+  };
+
+  const deleteBranch = async (id) => {
+    try {
+      // Regla de Integridad Referencial: Verificar Ventas y Stock
+      const salesCount = await db.sales.where('branch_id').equals(id).count();
+      const stockCount = await db.branch_stock.where('branch_id').equals(id).count();
+
+      if (salesCount > 0 || stockCount > 0) {
+        throw new Error(`No se puede eliminar la sucursal: tiene ${salesCount} ventas y ${stockCount} productos en stock asociados.`);
+      }
+
+      await db.branches.delete(id);
+      setBranches(branches.filter(b => b.id !== id));
+      
+      // Si era la activa, cambiar a otra
+      if (activeBranch?.id === id) {
+        const next = branches.find(b => b.id !== id) || null;
+        changeBranch(next);
+      }
+
+      // Sincronizar con Supabase
+      if (supabase) {
+        const { error } = await supabase.from('branches').delete().eq('id', toUUID(id));
+        if (error) console.warn('Error sync deleting branch:', error);
+      }
+    } catch (err) {
+      console.error("Error deleting branch:", err);
+      throw err;
+    }
   };
 
   return (
-    <BranchContext.Provider value={{ branches, activeBranch, changeBranch, addBranch, loading }}>
+    <BranchContext.Provider value={{ 
+      branches, 
+      activeBranch, 
+      changeBranch, 
+      addBranch, 
+      updateBranch, 
+      deleteBranch, 
+      loading 
+    }}>
       {children}
     </BranchContext.Provider>
   );

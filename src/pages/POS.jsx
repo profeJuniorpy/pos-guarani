@@ -231,33 +231,55 @@ export const POS = () => {
       <html>
         <head><title>Ticket - San Lucas POS</title>
         <style>
-          body { font-family: 'Courier New', monospace; width: 50mm; margin: 0; padding: 2mm; font-size: 10px; color: black; }
+          body { font-family: 'Courier New', monospace; width: 50mm; margin: 0; padding: 1mm; font-size: 9px; color: black; line-height: 1.2; }
           .center { text-align: center; } 
           .hr { border-top: 1px dashed black; margin: 4px 0; }
-          h2 { font-size: 14px; margin: 4px 0; }
-          p { margin: 2px 0; }
-          .row { display: flex; justify-content: space-between; margin: 2px 0; }
-          .item-name { max-width: 30mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+          h2 { font-size: 12px; margin: 4px 0; }
+          p { margin: 1px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 5px 0; font-size: 8px; }
+          th { border-bottom: 1px solid black; text-align: left; padding: 2px 0; }
+          td { padding: 2px 0; vertical-align: top; }
+          .right { text-align: right; }
+          .total-row { font-size: 11px; font-weight: bold; margin-top: 5px; }
         </style></head>
         <body>
-          ${branding?.logoUrl ? `<img src="${branding.logoUrl}" style="max-width: 40mm; display: block; margin: 0 auto; margin-bottom: 5px;" />` : ''}
+          ${branding?.logoUrl ? `<img src="${branding.logoUrl}" style="max-width: 35mm; display: block; margin: 0 auto; margin-bottom: 5px;" />` : ''}
           <h2 class="center">${branding?.businessName || 'SAN LUCAS POS'}</h2>
           ${branding?.address ? `<p class="center">${branding.address}</p>` : ''}
           ${branding?.phone ? `<p class="center">Tel: ${branding.phone}</p>` : ''}
-          <p class="center" style="font-size: 8px;">Fec: ${new Date().toLocaleString()}</p>
+          <p class="center">Fec: ${new Date().toLocaleString()}</p>
           <div class="hr"></div>
           <p><b>Cliente:</b> ${clientName || 'Consumidor Final'}</p>
           <p><b>RUC/CI:</b> ${clientRuc || 'XXX'}</p>
           <div class="hr"></div>
-          ${cart.map(item => `
-            <div class="row">
-              <span class="item-name">${item.name} (${item.quantity})</span> 
-              <span>${(item.price * item.quantity).toLocaleString()}</span>
-            </div>
-          `).join('')}
+          
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 15%">Ct</th>
+                <th style="width: 15%">Un</th>
+                <th style="width: 35%">Desc</th>
+                <th style="width: 15%">Pr</th>
+                <th style="width: 20%" class="right">Imp</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cart.map(item => `
+                <tr>
+                  <td>${item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}</td>
+                  <td>${item.unit || 'Ud'}</td>
+                  <td>${item.name.substring(0, 15)}</td>
+                  <td>${Math.round(item.price).toLocaleString()}</td>
+                  <td class="right">${Math.round(item.price * item.quantity).toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
           <div class="hr"></div>
-          <div class="row"><b>Total:</b> <b>Gs. ${total.toLocaleString('es-PY')}</b></div>
-          <p class="center" style="margin-top:10px;">¡Muchas Gracias!</p>
+          <div class="total-row center">TOTAL: Gs. ${total.toLocaleString('es-PY')}</div>
+          <p class="center" style="font-size: 8px; margin-top: 8px;">¡Muchas Gracias!</p>
+          <p class="center" style="font-size: 7px;">${activeBranch?.name || ''}</p>
         </body>
       </html>
     `;

@@ -1,8 +1,125 @@
 import { useState } from 'react';
 import { useBranding } from '../context/BrandingContext';
-import { Save, Image as ImageIcon, Sun, Moon, Upload } from 'lucide-react';
+import { useBranches } from '../context/BranchContext';
+import { Save, Image as ImageIcon, Sun, Moon, Upload, Plus, Edit2, Trash2, MapPin, Building } from 'lucide-react';
 import { db } from '../db/db';
 import { supabase } from '../utils/supabase';
+
+const BranchManager = () => {
+  const { branches, addBranch, updateBranch, deleteBranch } = useBranches();
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [branchForm, setBranchForm] = useState({ name: '', address: '' });
+
+  const resetForm = () => {
+    setBranchForm({ name: '', address: '' });
+    setIsAdding(false);
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingId) {
+        await updateBranch(editingId, branchForm);
+      } else {
+        await addBranch(branchForm);
+      }
+      resetForm();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleEdit = (branch) => {
+    setBranchForm({ name: branch.name, address: branch.address });
+    setEditingId(branch.id);
+    setIsAdding(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("¿Estás seguro de eliminar esta sucursal?")) return;
+    try {
+      await deleteBranch(id);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  return (
+    <section className="settings-section glass">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h3>Gestión de Sucursales</h3>
+        {!isAdding && (
+          <button type="button" className="btn btn-sm btn-success rounded-pill px-3 fw-bold d-flex align-items-center gap-1" onClick={() => setIsAdding(true)}>
+            <Plus size={16} /> Nueva Sucursal
+          </button>
+        )}
+      </div>
+
+      {isAdding && (
+        <div className="branch-form-box mb-4 p-3 border rounded-4 bg-light shadow-sm">
+          <h5 className="fw-bold mb-3">{editingId ? 'Editar Sucursal' : 'Nueva Sucursal'}</h5>
+          <div className="row g-3">
+            <div className="col-12 col-md-5">
+              <label className="form-label small fw-bold">Nombre</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={branchForm.name} 
+                onChange={e => setBranchForm({...branchForm, name: e.target.value})}
+                placeholder="Nombre de la sucursal"
+                required
+              />
+            </div>
+            <div className="col-12 col-md-5">
+              <label className="form-label small fw-bold">Dirección</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={branchForm.address} 
+                onChange={e => setBranchForm({...branchForm, address: e.target.value})}
+                placeholder="Dirección física"
+              />
+            </div>
+            <div className="col-12 col-md-2 d-flex align-items-end gap-2">
+              <button type="button" className="btn btn-success fw-bold flex-grow-1" onClick={handleSubmit}>
+                {editingId ? 'Actualizar' : 'Crear'}
+              </button>
+              <button type="button" className="btn btn-light" onClick={resetForm}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="branch-list d-flex flex-column gap-2">
+        {branches.map(branch => (
+          <div key={branch.id} className="branch-item p-3 border rounded-4 bg-white d-flex justify-content-between align-items-center transition-transform shadow-sm">
+            <div className="d-flex align-items-center gap-3">
+              <div className="branch-icon p-2 bg-success bg-opacity-10 text-success rounded-circle">
+                <Building size={20} />
+              </div>
+              <div>
+                <div className="fw-bold text-dark">{branch.name}</div>
+                <div className="small text-muted d-flex align-items-center gap-1">
+                  <MapPin size={12} /> {branch.address || 'Sin dirección'}
+                </div>
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button type="button" className="btn btn-sm btn-outline-primary border-0 p-2" onClick={() => handleEdit(branch)}>
+                <Edit2 size={18} />
+              </button>
+              <button type="button" className="btn btn-sm btn-outline-danger border-0 p-2" onClick={() => handleDelete(branch.id)}>
+                <Trash2 size={18} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+};
 
 export const Settings = () => {
   const { branding, updateBranding } = useBranding();
@@ -121,6 +238,8 @@ export const Settings = () => {
             </div>
           </div>
         </section>
+
+        <BranchManager />
 
         <section className="settings-section glass">
           <h3>Preferencias Visuales</h3>
@@ -269,6 +388,28 @@ export const Settings = () => {
           font-weight: bold;
           font-size: 16px;
           margin-top: 1rem;
+        }
+
+        .branch-item:hover {
+          transform: translateX(5px);
+          border-color: var(--primary) !important;
+        }
+
+        .branch-icon {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .branch-form-box {
+          animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         @media (max-width: 600px) {
